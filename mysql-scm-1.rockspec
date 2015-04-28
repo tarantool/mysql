@@ -18,7 +18,7 @@ external_dependencies = {
     },
     MYSQL = {
         header = "mysql/mysql.h",
-        library = "libmysqlclient_r"
+        library = "mysqlclient_r"
     }
 }
 build = {
