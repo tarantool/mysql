@@ -1,0 +1,5 @@
+add_library(driver SHARED driver.c)
+target_link_libraries(driver ${MYSQL_LIBRARIES})
+set_target_properties(driver PROPERTIES PREFIX "" OUTPUT_NAME "driver")
+install(TARGETS driver LIBRARY DESTINATION ${TARANTOOL_LIBDIR}/mysql)
+install(FILES init.lua DESTINATION ${TARANTOOL_LUADIR}/mysql)
