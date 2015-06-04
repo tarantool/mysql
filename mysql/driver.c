@@ -196,9 +196,10 @@ lua_mysql_execute(struct lua_State *L)
 				"Can't find value for %d placeholder", idx);
 		}
 
+		int v;
 		switch(lua_type(L, idx)) {
 			case LUA_TBOOLEAN:
-				int v = lua_toboolean(L, idx++);
+				v = lua_toboolean(L, idx++);
 				luaL_addstring(&b, v ? "TRUE" : "FALSE");
 				continue;
 			case LUA_TNIL:
@@ -206,8 +207,7 @@ lua_mysql_execute(struct lua_State *L)
 				luaL_addstring(&b, "NULL");
 				continue;
 			case LUA_TNUMBER:
-				const char *s = lua_tostring(L, idx++);
-				luaL_addstring(&b, s);
+				luaL_addstring(&b, lua_tostring(L, idx++));
 				continue;
 		}
 
