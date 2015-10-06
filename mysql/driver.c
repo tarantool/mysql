@@ -391,6 +391,9 @@ lbox_net_mysql_connect(struct lua_State *L)
 LUA_API int
 luaopen_mysql_driver(lua_State *L)
 {
+	if (mysql_library_init(0, NULL, NULL))
+		luaL_error(L, "Failed to initialize mysql library");
+
 	static const struct luaL_reg methods [] = {
 		{"execute",	lua_mysql_execute},
 		{"quote",	lua_mysql_quote},
