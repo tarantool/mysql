@@ -8,11 +8,11 @@ local json = require('json')
 
 require('tap').test('mysql', function(t)
     t:plan(16)
-    local host, port, user, pass, db = string.match(os.getenv('MYSQL') or '',
+    local host, port, user, password, db = string.match(os.getenv('MYSQL') or '',
         "([^:]*):([^:]*):([^:]*):([^:]*):([^:]*)")
 
     local c, err = mysql.connect({ host = host, port = port, user = user,
-        pass = pass, db = db, raise = false })
+        password = password, db = db, raise = false })
     t:ok(c ~= nil, "connection")
     -- Add an extension to 'tap' module
     getmetatable(t).__index.q = function(test, stmt, result, ...)

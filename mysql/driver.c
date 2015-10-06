@@ -349,8 +349,10 @@ lua_mysql_quote(struct lua_State *L)
 static int
 lbox_net_mysql_connect(struct lua_State *L)
 {
-	if (lua_gettop(L) < 5)
-		luaL_error(L, "Usage: mysql.connect(host, port, user, pass, db)");
+	if (lua_gettop(L) < 5) {
+		luaL_error(L, "Usage: mysql.connect(host, port, user, "
+			   "password, db)");
+	}
 
 	const char *host = lua_tostring(L, 1);
 	const char *port = lua_tostring(L, 2);

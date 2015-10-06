@@ -32,7 +32,7 @@ See [tarantool/rocks][TarantoolRocks] for LuaRocks configuration details.
 
 ``` lua
 local mysql = require('mysql')
-local conn = mysql.connect({host = localhost, user = 'user', pass = 'pass', db = 'db'})
+local conn = mysql.connect({host = localhost, user = 'user', password = 'password', db = 'db'})
 local tuples = conn:execute("SELECT ? AS a, 'xx' AS b", 42))
 conn:begin()
 conn:execute("INSERT INTO test VALUES(1, 2, 3)")
@@ -50,7 +50,7 @@ Connect to a database.
  - `host` - a hostname to connect
  - `port` - a port numner to connect
  - `user` - username
- - `pass` or `password` - a password
+ - `password` - a password
  - `db` - a database name
  - `raise` = false - raise an exceptions instead of returning nil, reason in
    all API functions

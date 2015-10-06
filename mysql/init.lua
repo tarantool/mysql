@@ -5,8 +5,8 @@ local driver = require('mysql.driver')
 
 local conn_mt
 
--- mysql.connect({host = host, port = port, user = user, pass = pass, db = db,
---             raise = false })
+-- mysql.connect({host = host, port = port, user = user,
+--               password = password, db = db, raise = false })
 -- @param debug if option raise set in 'false' and an error will be happened
 --   the function will return 'nil' as the first variable and text of error as
 --   the second value.
@@ -15,7 +15,7 @@ local function connect(opts)
     opts = opts or {}
 
     local s, c = driver.connect(opts.host, opts.port, opts.user,
-        opts.pass or opts.password, opts.db)
+        opts.password, opts.db)
     if s == nil then
         if opts.raise then
             error(c)
@@ -30,7 +30,7 @@ local function connect(opts)
         host        = opts.host,
         port        = opts.port,
         user        = opts.user,
-        pass        = opts.pass,
+        password    = opts.password,
         db          = opts.db,
 
         -- private variables
