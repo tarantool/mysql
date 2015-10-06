@@ -14,8 +14,8 @@
 Clone repository and then build it using CMake:
 
 ``` bash
-git clone https://github.com/tarantool/mysql.git
-cd mysql && cmake . -DCMAKE_BUILD_TYPE=RelWithDebugInfo
+git clone https://github.com/tarantool/mysql.git tarantool-mysql
+cd tarantool-mysql && cmake . -DCMAKE_BUILD_TYPE=RelWithDebugInfo
 make
 make install
 ```
