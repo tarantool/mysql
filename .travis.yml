@@ -2,19 +2,12 @@ sudo: required
 services:
   - docker
 
-language: cpp
-compiler:
-  - gcc
-
 env:
-    global:
-      - OUT_REPO=tarantool/modules
-      - GIT_REPO=https://github.com/$TRAVIS_REPO_SLUG.git
-      - PROJECT=mysql
     matrix:
       - OS=el DIST=6 PACK=rpm
       - OS=el DIST=7 PACK=rpm
-      - OS=fedora DIST=20 PACK=rpm
+      # fedora 20 has broken mysql-devel package
+      # - OS=fedora DIST=20 PACK=rpm
       - OS=fedora DIST=21 PACK=rpm
       - OS=fedora DIST=22 PACK=rpm
       # uncomment this after fedora 23 support in tarantool
@@ -27,15 +20,9 @@ env:
       - OS=debian DIST=stretch PACK=deb
       - PACK=none
 
-before_install:
-  - git submodule update --init --recursive
-  - sudo apt-get update
-  - gem install package_cloud
-
 script:
   - git clone https://github.com/tarantool/build.git
-  - bash build/pack/travis.sh
+  - ./build/pack/travis.sh
 
 notifications:
   email: true
-  irc: false
