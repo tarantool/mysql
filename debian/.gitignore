@@ -1,0 +1,5 @@
+tarantool-mysql/
+files
+stamp-*
+*.substvars
+*.log
