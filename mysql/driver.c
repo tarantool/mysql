@@ -118,39 +118,44 @@ lua_mysql_pushresult(struct lua_State *L, MYSQL *mysql,
 		int i;
 		for (i = 0; i < mysql_num_fields(result); i++) {
 			lua_pushstring(L, fields[i].name);
+			if(row[i]) {
+				switch (fields[i].type) {
+					case MYSQL_TYPE_TINY:
+					case MYSQL_TYPE_SHORT:
+					case MYSQL_TYPE_LONG:
+					case MYSQL_TYPE_FLOAT:
+					case MYSQL_TYPE_INT24:
+					case MYSQL_TYPE_DOUBLE: {
+						lua_pushlstring(L, row[i], len[i]);
+						double v = lua_tonumber(L, -1);
+						lua_pop(L, 1);
+						lua_pushnumber(L, v);
+						break;
+					}
 
-			switch(fields[i].type) {
-				case MYSQL_TYPE_TINY:
-				case MYSQL_TYPE_SHORT:
-				case MYSQL_TYPE_LONG:
-				case MYSQL_TYPE_FLOAT:
-				case MYSQL_TYPE_INT24:
-				case MYSQL_TYPE_DOUBLE: {
-					lua_pushlstring(L, row[i], len[i]);
-					double v = lua_tonumber(L, -1);
-					lua_pop(L, 1);
-					lua_pushnumber(L, v);
-					break;
+					case MYSQL_TYPE_NULL:
+						lua_pushnil(L);
+						break;
+
+					case MYSQL_TYPE_LONGLONG: {
+							long long v = atoll(row[i]);
+							luaL_pushuint64(L, v);
+							break;
+					}
+
+					/* AS string */
+					case MYSQL_TYPE_NEWDECIMAL:
+					case MYSQL_TYPE_DECIMAL:
+					case MYSQL_TYPE_TIMESTAMP:
+					default:
+						lua_pushlstring(L, row[i], len[i]);
+						break;
+
 				}
-
-				case MYSQL_TYPE_NULL:
-					lua_pushnil(L);
-					break;
-
-				case MYSQL_TYPE_LONGLONG:
-				case MYSQL_TYPE_TIMESTAMP: {
-					long long v = atoll(row[i]);
-					luaL_pushuint64(L, v);
-					break;
-				}
-
-				/* AS string */
-				case MYSQL_TYPE_NEWDECIMAL:
-				case MYSQL_TYPE_DECIMAL:
-				default:
-					lua_pushlstring(L, row[i], len[i]);
-					break;
-
+			}
+			else
+			{
+				lua_pushnil(L);
 			}
 			lua_settable(L, -3);
 		}
