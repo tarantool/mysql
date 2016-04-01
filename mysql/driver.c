@@ -139,7 +139,11 @@ lua_mysql_pushresult(struct lua_State *L, MYSQL *mysql,
 
 					case MYSQL_TYPE_LONGLONG: {
 							long long v = atoll(row[i]);
-							luaL_pushuint64(L, v);
+							if (fields[i].flags & UNSIGNED_FLAG) {
+								luaL_pushuint64(L, v);
+							} else {
+								luaL_pushint64(L, v);
+							}
 							break;
 					}
 
