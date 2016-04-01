@@ -49,6 +49,18 @@ local function close(self)
     return self.driver:close()
 end
 
+-- quote string
+local function quote(self, str)
+    if type(str) ~= 'string' then
+        if self.raise then
+            error('quote(): expected string, got ' .. type(str))
+        else
+            return nil
+        end
+    end
+    return self.driver:quote(str)
+end
+
 -- example:
 -- local tuples, arows = db:execute(sql, args)
 --   tuples - a table of tuples (tables)
@@ -118,6 +130,7 @@ conn_mt = {
         begin = begin;
         rollback = rollback;
         commit = commit;
+        quote = quote;
     }
 }
 
