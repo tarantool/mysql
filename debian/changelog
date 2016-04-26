@@ -1,3 +1,10 @@
+tarantool-mysql (1.1.0) unstable; urgency=medium
+
+  * Add connection pool support
+  * Use coio and nonblocking mysql api instead of thread pool
+
+ -- Georgy Kirichenko <georgy@tarantool.org>  Tue, 26 Apr 2016 22:51:42 +0300
+
 tarantool-mysql (1.0.3-1) unstable; urgency=medium
 
   * Initial release

@@ -1,5 +1,5 @@
 Name: tarantool-mysql
-Version: 1.0.3
+Version: 1.1.0
 Release: 1%{?dist}
 Summary: MySQL connector for Tarantool
 Group: Applications/Databases
@@ -9,7 +9,6 @@ Source0: https://github.com/tarantool/%{name}/archive/%{version}/%{name}-%{versi
 BuildRequires: cmake >= 2.8
 BuildRequires: gcc >= 4.5
 BuildRequires: tarantool-devel >= 1.6.8.0
-BuildRequires: mysql-devel >= 5.1.0
 Requires: tarantool >= 1.6.8.0
 
 %description
