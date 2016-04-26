@@ -33,7 +33,7 @@ See [tarantool/rocks][TarantoolRocks] for LuaRocks configuration details.
 ``` lua
 local mysql = require('mysql')
 local conn = mysql.connect({host = localhost, user = 'user', password = 'password', db = 'db'})
-local tuples = conn:execute("SELECT ? AS a, 'xx' AS b", 42))
+local status, tuples = conn:execute("SELECT ? AS a, 'xx' AS b", 42))
 conn:begin()
 conn:execute("INSERT INTO test VALUES(1, 2, 3)")
 conn:commit()
@@ -66,7 +66,7 @@ Connect to a database.
 Execute a statement with arguments in the current transaction.
 
 *Returns*:
- - `{ { column1 = value, column2 = value }, ... }, nrows` on success
+ - `true, { { column1 = value, column2 = value }, ... }, { {column1 = value, ... }, ...}` on success
  - `nil, reason` on error if `raise` is false
  - `error(reason)` on error if `raise` is true
 
@@ -74,9 +74,9 @@ Execute a statement with arguments in the current transaction.
 ```
 tarantool> conn:execute("SELECT ? AS a, 'xx' AS b", 42)
 ---
+- - true
 - - a: 42
     b: xx
-- 1
 ...
 ```
 
@@ -106,6 +106,52 @@ Execute a dummy statement to check that connection is alive.
 
  - `true` on success
  - `false` on failure
+
+### `mysql.pool_create({host = host, port = port, user = user, password = password, db = db, size = size)`
+
+Create a connection pool with count of size established connections.
+
+*Options*:
+
+ - `host` - a hostname to connect
+ - `port` - a port numner to connect
+ - `user` - username
+ - `password` - a password
+ - `db` - a database name
+ - `raise` = false - raise an exceptions instead of returning nil, reason in
+   all API functions
+ - `size` - count of connections in pool
+
+*Returns*
+
+ - `pool ~=nil` on success
+ - `nil, reason` on error if `raise` is false
+ - `error(reason)` on error if `raise` is true
+
+### `pool:get()`
+
+Get a connection from pool. Reset connection before return it. If connection
+is broken then it will be reestablished. If there is no free connections then
+calling fiber will sleep until another fiber returns some connection to pool.
+
+*Returns*:
+
+ - `connection ~= nil`
+ 
+### `pool:put(conn)`
+
+Return a connection to connection pool.
+
+*Options*
+
+ - `conn` - a connection
+
+## Comments
+
+All calls to connections api will be serialized, so it should to be safe to
+use one connection from some count of fibers. But you should understand,
+that you can have some unwanted behavior across db calls, for example if
+another fiber 'injects' some sql between two your calls.
 
 ## See Also
 

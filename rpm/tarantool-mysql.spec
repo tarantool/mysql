@@ -1,5 +1,5 @@
 Name: tarantool-mysql
-Version: 1.0.3
+Version: 1.1.0
 Release: 1%{?dist}
 Summary: MySQL connector for Tarantool
 Group: Applications/Databases

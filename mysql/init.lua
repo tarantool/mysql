@@ -1,139 +1,235 @@
--- sql.lua (internal file)
+-- init.lua (internal file)
 
 local fiber = require('fiber')
 local driver = require('mysql.driver')
+local ffi = require('ffi')
 
+local pool_mt
 local conn_mt
 
--- mysql.connect({host = host, port = port, user = user,
---               password = password, db = db, raise = false })
--- @param debug if option raise set in 'false' and an error will be happened
---   the function will return 'nil' as the first variable and text of error as
---   the second value.
--- @return connector to database or throw error
-local function connect(opts)
-    opts = opts or {}
-
-    local s, c = driver.connect(opts.host, opts.port, opts.user,
-        opts.password, opts.db)
-    if s == nil then
-        if opts.raise then
-            error(c)
-        end
-        return nil, c
+-- pool error helper
+local function get_error(raise, msg)
+    if raise then
+        error(msg)
     end
+    return nil, msg
+end
 
-    return setmetatable({
-        driver = c,
-
-        -- connection variables
-        host        = opts.host,
-        port        = opts.port,
-        user        = opts.user,
-        password    = opts.password,
-        db          = opts.db,
-
-        -- private variables
-        queue       = {},
-        processing  = false,
-
-        -- throw exception if error
-        raise       = opts.raise
+--create a new connection
+local function conn_create(mysql_conn, pool)
+    local queue = fiber.channel(1)
+    queue:put(true)
+    local conn = setmetatable({
+        usable = true,
+        pool = pool,
+        conn = mysql_conn,
+        queue = queue,
+        -- we can use ffi gc to return mysql connection to pool
+        __gc_hook = ffi.gc(ffi.new('void *'),
+            function(self)
+                mysql_conn:close()
+                if not pool.virtual then
+                    pool.queue:put(nil)
+                end
+            end)
     }, conn_mt)
+
+    return conn
 end
 
---
--- Close connection
---
-local function close(self)
-    return self.driver:close()
-end
-
--- quote string
-local function quote(self, str)
-    if type(str) ~= 'string' then
-        if self.raise then
-            error('quote(): expected string, got ' .. type(str))
-        else
-            return nil
+-- get connection from pool
+local function conn_get(pool)
+    local mysql_conn = pool.queue:get()
+    local status
+    if mysql_conn == nil then
+        status, mysql_conn = driver.connect(pool.host, pool.port or 0,
+                                            pool.user, pool.pass, pool.db)
+        if status == -1 then
+            return get_error(pool.raise, mysql_conn)
+        end
+        if status == -2 then
+            return status
         end
     end
-    return self.driver:quote(str)
+    return conn_create(mysql_conn, pool)
 end
 
--- example:
--- local tuples, arows = db:execute(sql, args)
---   tuples - a table of tuples (tables)
---   arows  - count of affected rows
-
--- the method throws exception by default.
--- user can change the behaviour by set 'connection.raise'
--- attribute to 'false'
--- in the case it will return negative arows if error and
--- txtst will contain text of error
-local function execute(self, sql, ...)
-    -- waits until connection will be free
-    while self.processing do
-        self.queue[ fiber.id() ] = fiber.channel()
-        self.queue[ fiber.id() ]:get()
-        self.queue[ fiber.id() ] = nil
+local function conn_put(conn)
+    local mysqlconn = conn.conn
+    --erase conn for gc
+    conn.conn = nil
+    if not conn.queue:get() then
+        conn.usable = false
+        return nil
     end
-    self.processing = true
-    local status, tuples, nrows = pcall(self.driver.execute, self.driver, sql, ...)
-    self.processing = false
-    if not status then
-        if self.raise then
-            error(tuples)
-        end
-        return nil, tuples
-    end
-
-    -- wakeup one waiter
-    for fid, ch in pairs(self.queue) do
-        ch:put(true, 0)
-        self.queue[ fid ] = nil
-        break
-    end
-    return tuples, nrows
-end
-
--- pings database
--- returns true if success. doesn't throw any errors
-local function ping(self)
-    local raise = self.raise
-    self.raise = false
-    local res = self:execute('SELECT 1 AS code')
-    self.raise = raise
-    return res ~= nil and res[1].code == 1
-end
-
--- begin transaction
-local function begin(self)
-    return self:execute('BEGIN') ~= nil
-end
-
--- commit transaction
-local function commit(self)
-    return self:execute('COMMIT') ~= nil
-end
-
--- rollback transaction
-local function rollback(self)
-    return self:execute('ROLLBACK') ~= nil
+    conn.usable = false
+    return mysqlconn
 end
 
 conn_mt = {
     __index = {
-        close = close;
-        execute = execute;
-        ping = ping;
-        begin = begin;
-        rollback = rollback;
-        commit = commit;
-        quote = quote;
+        execute = function(self, sql, ...)
+            if not self.usable then
+                return get_error(self.pool.raise, 'Connection is not usable')
+            end
+            if not self.queue:get() then
+                self.queue:put(false)
+                return get_error(self.pool.raise, 'Connection is broken')
+            end
+            local status, datas
+            if ... ~= nil then
+                datas = {self.conn:execute_prepared(sql, ...)}
+                status = datas[1]
+            else
+                datas = {self.conn:execute(sql)}
+                status = datas[1]
+            end
+            if status ~= 1 then
+                self.queue:put(status == 0)
+                return get_error(self.pool.raise, datas[2])
+            end
+            self.queue:put(true)
+            datas[1] = true
+            return unpack(datas)
+        end,
+        begin = function(self)
+            return self:execute('BEGIN')
+        end,
+        commit = function(self)
+            return self:execute('COMMIT')
+        end,
+        rollback = function(self)
+            return self:execute('ROLLBACK')
+        end,
+        ping = function(self)
+            local pool = self.pool
+            self.pool = {raise = false}
+            local data, msg = self:execute('SELECT 1 AS code')
+            self.pool = pool
+            return data and msg[1].code == 1
+        end,
+        close = function(self)
+            if not self.usable then
+                return get_error(self.pool.raise, 'Connection is not usable')
+            end
+            if not self.queue:get() then
+                self.queue:put(false)
+                return get_error(self.pool.raise, 'Connection is broken')
+            end
+            self.usable = false
+            self.conn:close()
+            self.queue:put(false)
+            return true
+        end,
+        reset = function(self, user, pass, db)
+            if not self.usable then
+                return get_error(self.pool.raise, 'Connection is not usable')
+            end
+            if not self.queue:get() then
+                self.queue:put(false)
+                return get_error(self.pool.raise, 'Connection is broken')
+            end
+            self.conn:reset(user, pass, db)
+            self.queue:put(true)
+        end
     }
 }
 
+-- Create connection pool. Accepts mysql connection params (host, port, user,
+-- password, dbname), size and raise flag.
+local function pool_create(opts)
+    opts = opts or {}
+    opts.size = opts.size or 1
+    local queue = fiber.channel(opts.size)
+
+    for i = 1, opts.size do
+        local status, conn = driver.connect(opts.host, opts.port or 0, opts.user, opts.password, opts.db)
+        if status < 0 then
+            while queue:count() > 0 do
+                local mysql_conn = queue:get()
+                mysql_conn:close()
+            end
+            if status == -1 then
+                return get_error(opts.raise, conn)
+            else
+                return -2
+            end
+        end
+        queue:put(conn)
+    end
+
+    return setmetatable({
+        -- connection variables
+        host        = opts.host,
+        port        = opts.port,
+        user        = opts.user,
+        pass        = opts.password,
+        db          = opts.db,
+        size        = opts.size,
+
+        -- private variables
+        queue       = queue,
+        raise       = opts.raise,
+        usable      = true
+    }, pool_mt)
+end
+
+-- Close pool
+local function pool_close(self)
+    self.usable = false
+    for i = 1, self.size do
+        local mysql_conn = self.queue:get()
+        if mysql_conn ~= nil then
+            mysql_conn:close()
+        end
+    end
+    return 1
+end
+
+-- Returns connection
+local function pool_get(self)
+    if not self.usable then
+        return get_error(self.raise, 'Pool is not usable')
+    end
+    local conn = conn_get(self)
+    conn:reset(self.user, self.pass, self.db)
+    return conn
+end
+
+-- Free binded connection
+local function pool_put(self, conn)
+    if conn.usable then
+        self.queue:put(conn_put(conn))
+    else
+        self.queue:put(nil)
+    end
+end
+
+pool_mt = {
+    __index = {
+        get = pool_get;
+        put = pool_put;
+        close = pool_close;
+    }
+}
+
+-- Create connection. Accepts mysql connection params (host, port, user,
+-- password, dbname) separatelly or in one string and raise flag.
+local function connect(opts)
+    opts = opts or {}
+    local pool = {virtual = true, raise = opts.raise}
+
+    local status, mysql_conn = driver.connect(opts.host, opts.port or 0, opts.user, opts.password, opts.db)
+    if status == -1 then
+        return get_error(pool.raise, mysql_conn)
+    end
+    if status == -2 then
+        return -2
+    end
+    return conn_create(mysql_conn, pool)
+end
+
 return {
     connect = connect;
+    pool_create = pool_create;
 }
