@@ -5,7 +5,7 @@ Maintainer: Roman Tsisyk <roman@tarantool.org>
 Build-Depends: debhelper (>= 9), cdbs,
                cmake (>= 2.8),
                tarantool-dev (>= 1.6.8.0),
-               libmysqlclient-dev (>= 5.1.0)
+               libmariadbclient-dev (>= 5.1.0)
 Standards-Version: 3.9.6
 Homepage: https://github.com/tarantool/mysql
 Vcs-Git: git://github.com/tarantool/mysql.git
