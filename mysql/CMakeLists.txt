@@ -1,4 +1,5 @@
 add_library(driver SHARED driver.c)
+add_dependencies(driver mariadb-connector-c)
 target_link_libraries(driver ${MARIADB_LIBRARAY} -lssl -lcrypto)
 set_target_properties(driver PROPERTIES PREFIX "" OUTPUT_NAME "driver")
 install(TARGETS driver LIBRARY DESTINATION ${TARANTOOL_INSTALL_LIBDIR}/mysql)
