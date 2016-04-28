@@ -8,6 +8,7 @@ URL: https://github.com/tarantool/mysql
 Source0: https://github.com/tarantool/%{name}/archive/%{version}/%{name}-%{version}.tar.gz
 BuildRequires: cmake >= 2.8
 BuildRequires: gcc >= 4.5
+BuildRequires: openssl-devel
 BuildRequires: tarantool-devel >= 1.6.8.0
 Requires: tarantool >= 1.6.8.0
 
