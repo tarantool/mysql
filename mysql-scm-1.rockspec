@@ -30,7 +30,7 @@ build = {
                 "$(MYSQL_INCDIR)/mysql"
             },
             libdir = "$(MYSQL_LIBDIR)",
-            libraries = "mysqlclient_r"
+            libraries = "mysqlclient"
         },
         ['mysql.init'] = 'mysql/init.lua',
     }
