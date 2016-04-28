@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
 
+include(ExternalProject)
+
 project(mysql C)
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
@@ -7,18 +9,14 @@ endif()
 
 # Fetch and patch mariadb-connector-c submodule
 execute_process(COMMAND git submodule update --init --recursive)
-execute_process(COMMAND cat ../mariadb.patch
-		COMMAND patch -p1
-	WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/mariadb-connector-c")
-add_subdirectory(mariadb-connector-c)
-#execute_process(COMMAND cmake -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} .
-#	WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/mariadb-connector-c")
-#execute_process(COMMAND "make"
-#	WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/mariadb-connector-c")
-include_directories("${CMAKE_SOURCE_DIR}/mariadb-connector-c/include")
+ExternalProject_Add(mariadb-connector-c
+    SOURCE_DIR "${CMAKE_SOURCE_DIR}/mariadb-connector-c"
+    CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+        -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/lib)
+
+include_directories("${CMAKE_BINARY_DIR}/lib/include/mariadb")
 link_directories(${MYSQL_LIBRARY_DIRS})
-set(MYSQL_LIBRARIES
-	"${CMAKE_BINARY_DIR}/mariadb-connector-c/libmariadb/libmysqlclient.a")
+set(MARIADB_LIBRARY "${CMAKE_BINARY_DIR}/lib/lib/mariadb/libmysqlclient.a")
 
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
