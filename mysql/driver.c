@@ -505,7 +505,7 @@ lua_mysql_connect(struct lua_State *L)
 	const char *pass = lua_tostring(L, 4);
 	const char *db = lua_tostring(L, 5);
 
-	MYSQL *conn = mysql_init(NULL);
+	MYSQL *conn, *tmp_conn = mysql_init(NULL);
 	if (!conn) {
 		lua_pushinteger(L, -1);
 		int fail = safe_pushstring(L,
@@ -523,24 +523,24 @@ lua_mysql_connect(struct lua_State *L)
 		iport = atoi(port); /* 0 is ok */
 	}
 
-	mysql_options(conn, MYSQL_OPT_NONBLOCK, 0);
-	status = mysql_real_connect_start(&conn, conn, host, user, pass,
+	mysql_options(tmp_conn, MYSQL_OPT_NONBLOCK, 0);
+	status = mysql_real_connect_start(&conn, tmp_conn, host, user, pass,
 		db, iport, usocket,
 		CLIENT_MULTI_STATEMENTS | CLIENT_MULTI_RESULTS);
 	while (status) {
-		status = mysql_wait_pending(conn, status);
+		status = mysql_wait_pending(tmp_conn, status);
 		if (fiber_is_cancelled()) {
-			mysql_close(conn);
+			mysql_close(tmp_conn);
 			lua_pushnumber(L, -2);
 			return 1;
 		}
-		status = mysql_real_connect_cont(&conn, conn, status);
+		status = mysql_real_connect_cont(&conn, tmp_conn, status);
 	}
 
-	if (*mysql_error(conn)) {
+	if (!conn) {
 		lua_pushinteger(L, -1);
-		int fail = safe_pushstring(L, (char *)mysql_error(conn));
-		mysql_close(conn);
+		int fail = safe_pushstring(L, (char *)mysql_error(tmp_conn));
+		mysql_close(tmp_conn);
 		return fail ? lua_error(L) : 2;
 	}
 
