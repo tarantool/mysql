@@ -256,7 +256,8 @@ lua_mysql_stmt_push_row(struct lua_State *L)
 	MYSQL_FIELD *fields = (MYSQL_FIELD *)lua_topointer(L, 3);
 
 	lua_newtable(L);
-	for (unsigned col_no = 0; col_no < col_count; ++col_no) {
+	unsigned col_no;
+	for (col_no = 0; col_no < col_count; ++col_no) {
 		if (*results[col_no].is_null)
 			continue;
 		lua_pushstring(L, fields[col_no].name);
@@ -307,7 +308,8 @@ lua_mysql_execute_prepared(struct lua_State *L)
 	param_binds = (MYSQL_BIND *)calloc(sizeof(*param_binds), paramCount);
 	values = (uint64_t *)calloc(sizeof(*values), paramCount);
 	/* Setup input bind buffer */
-	for (unsigned long param_no = 0; param_no < paramCount; ++param_no) {
+	unsigned param_no;
+	for (param_no = 0; param_no < paramCount; ++param_no) {
 		if ((unsigned long)lua_gettop(L) <= param_no + 3) {
 			param_binds[param_no].buffer_type = MYSQL_TYPE_NULL;
 			continue;
@@ -352,7 +354,8 @@ lua_mysql_execute_prepared(struct lua_State *L)
 	unsigned long col_count = mysql_num_fields(meta);
 	result_binds = (MYSQL_BIND *)calloc(sizeof(MYSQL_BIND), col_count);
 	MYSQL_FIELD *fields = mysql_fetch_fields(meta);
-	for (unsigned long col_no = 0; col_no < col_count; ++col_no) {
+	unsigned long col_no;
+	for (col_no = 0; col_no < col_count; ++col_no) {
 		result_binds[col_no].buffer_type = MYSQL_TYPE_STRING;
 		result_binds[col_no].buffer = (char *)malloc(fields[col_no].length);
 		result_binds[col_no].buffer_length = fields[col_no].length;
@@ -394,7 +397,8 @@ done:
 	if (param_binds)
 		free(param_binds);
 	if (result_binds) {
-		for (unsigned long col_no = 0; col_no < col_count; ++col_no) {
+		unsigned long col_no;
+		for (col_no = 0; col_no < col_count; ++col_no) {
 			free(result_binds[col_no].buffer);
 			free(result_binds[col_no].length);
 			free(result_binds[col_no].is_null);
