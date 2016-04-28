@@ -37,7 +37,7 @@
 #include <lauxlib.h>
 
 #include <mysql.h>
-#include <errmsg.h>
+#include <ma_errmsg.h>
 
 #define TIMEOUT_INFINITY 365 * 86400 * 100.0
 static const char mysql_driver_label[] = "__tnt_mysql_driver";
