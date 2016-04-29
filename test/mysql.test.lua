@@ -22,7 +22,7 @@ function test_old_api(t, conn)
     t:plan(16)
     -- Add an extension to 'tap' module
     getmetatable(t).__index.q = function(test, stmt, result, ...)
-        test:is_deeply({conn:execute(stmt, ...)}, {true, result},
+        test:is_deeply({conn:execute(stmt, ...)}, {{result}, true},
             ... ~= nil and stmt..' % '..json.encode({...}) or stmt)
     end
     t:ok(conn:ping(), "ping")
@@ -48,7 +48,7 @@ function test_old_api(t, conn)
         end
 
         t:ok(conn:begin(), "begin")
-        local status = conn:execute("INSERT INTO _tx_test VALUES(10)");
+        local _, status = conn:execute("INSERT INTO _tx_test VALUES(10)");
         t:is(status, true, "insert")
         t:q('SELECT * FROM _tx_test', {{ a  = 10 }})
         t:ok(conn:rollback(), "roolback")
@@ -110,9 +110,9 @@ function test_mysql_int64(t, p)
     conn = p:get()
     conn:execute('create table int64test (id bigint)')
     conn:execute('insert into int64test values(1234567890123456789)')
-    local r, m = conn:execute('select id from int64test')
+    local d, s = conn:execute('select id from int64test')
     conn:execute('drop table int64test')
-    t:ok(m[1]['id'] == 1234567890123456789LL, 'int64 test')
+    t:ok(d[1][1]['id'] == 1234567890123456789LL, 'int64 test')
     p:put(conn)
 end
 

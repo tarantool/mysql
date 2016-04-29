@@ -205,11 +205,14 @@ lua_mysql_execute(struct lua_State *L)
 		return lua_mysql_push_error(L, conn);
 
 	lua_pushnumber(L, 1);
-	int ret_count = 1;
+	int ret_count = 2;
+	int result_no = 0;
 
+	lua_newtable(L);
 	while (true) {
 		MYSQL_RES *res = mysql_use_result(conn);
 		if (res) {
+			lua_pushnumber(L, ++result_no);
 			int fail = 0;
 			lua_pushcfunction(L, lua_mysql_fetch_result);
 			lua_pushlightuserdata(L, conn);
@@ -228,7 +231,7 @@ lua_mysql_execute(struct lua_State *L)
 			if (fail) {
 				return lua_error(L);
 			}
-			++ret_count;
+			lua_settable(L, -3);
 		}
 		int next_res, status = mysql_next_result_start(&next_res, conn);
 		while (status) {
@@ -350,6 +353,9 @@ lua_mysql_execute_prepared(struct lua_State *L)
 	}
 	if (error)
 		goto done;
+
+	lua_newtable(L);
+	lua_pushnumber(L, 1);
 	meta = mysql_stmt_result_metadata(stmt);
 	if (!meta)
 		goto done;
@@ -390,6 +396,7 @@ lua_mysql_execute_prepared(struct lua_State *L)
 		lua_settable(L, -3);
 		++row_idx;
 	}
+	lua_settable(L, - 3);
 	ret_count = 2;
 
 done:
@@ -509,7 +516,7 @@ lua_mysql_connect(struct lua_State *L)
 	const char *db = lua_tostring(L, 5);
 
 	MYSQL *conn, *tmp_conn = mysql_init(NULL);
-	if (!conn) {
+	if (!tmp_conn) {
 		lua_pushinteger(L, -1);
 		int fail = safe_pushstring(L,
 					  "Can not allocate memory for connector");

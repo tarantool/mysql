@@ -41,6 +41,7 @@ end
 local function conn_get(pool)
     local mysql_conn = pool.queue:get()
     local status
+    local k = mysql_conn
     if mysql_conn == nil then
         status, mysql_conn = driver.connect(pool.host, pool.port or 0,
                                             pool.user, pool.pass, pool.db)
@@ -77,36 +78,33 @@ conn_mt = {
                 return get_error(self.pool.raise, 'Connection is broken')
             end
             local status, datas
-            if ... ~= nil then
-                datas = {self.conn:execute_prepared(sql, ...)}
-                status = datas[1]
+            if select('#', ...) > 0 then
+                status, datas = self.conn:execute_prepared(sql, ...)
             else
-                datas = {self.conn:execute(sql)}
-                status = datas[1]
+                status, datas = self.conn:execute(sql)
             end
             if status ~= 1 then
                 self.queue:put(status == 0)
-                return get_error(self.pool.raise, datas[2])
+                return get_error(self.pool.raise, datas)
             end
             self.queue:put(true)
-            datas[1] = true
-            return unpack(datas)
+            return datas, true
         end,
         begin = function(self)
-            return self:execute('BEGIN')
+            return self:execute('BEGIN') ~= nil
         end,
         commit = function(self)
-            return self:execute('COMMIT')
+            return self:execute('COMMIT') ~= nil
         end,
         rollback = function(self)
-            return self:execute('ROLLBACK')
+            return self:execute('ROLLBACK') ~= nil
         end,
         ping = function(self)
             local pool = self.pool
             self.pool = {raise = false}
             local data, msg = self:execute('SELECT 1 AS code')
             self.pool = pool
-            return data and msg[1].code == 1
+            return msg and data[1][1].code == 1
         end,
         close = function(self)
             if not self.usable then
