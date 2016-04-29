@@ -291,6 +291,7 @@ lua_mysql_execute_prepared(struct lua_State *L)
 
 	/* We hope that all should be fine and push 1 (OK) */
 	lua_pushnumber(L, 1);
+	ret_count = 1;
 	stmt = mysql_stmt_init(conn);
 	if ((error = !stmt))
 		goto done;
@@ -350,6 +351,8 @@ lua_mysql_execute_prepared(struct lua_State *L)
 	if (error)
 		goto done;
 	meta = mysql_stmt_result_metadata(stmt);
+	if (!meta)
+		goto done;
 	/* Alloc space for output */
 	unsigned long col_count = mysql_num_fields(meta);
 	result_binds = (MYSQL_BIND *)calloc(sizeof(MYSQL_BIND), col_count);
