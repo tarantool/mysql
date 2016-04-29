@@ -129,7 +129,19 @@ conn_mt = {
             end
             self.conn:reset(user, pass, db)
             self.queue:put(true)
-        end
+        end,
+	quote = function(self, value)
+            if not self.usable then
+                return get_error(self.pool.raise, 'Connection is not usable')
+            end
+            if not self.queue:get() then
+                self.queue:put(false)
+                return get_error(self.pool.raise, 'Connection is broken')
+            end
+            local ret = self.conn:quote(value)
+            self.queue:put(true)
+            return ret
+	end
     }
 }
 
