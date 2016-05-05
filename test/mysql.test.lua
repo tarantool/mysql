@@ -12,11 +12,11 @@ local host, port, user, password, db = string.match(os.getenv('MYSQL') or '',
     "([^:]*):([^:]*):([^:]*):([^:]*):([^:]*)")
 
 local conn, err = mysql.connect({ host = host, port = port, user = user,
-    password = password, db = db, raise = false })
+    password = password, db = db })
 if conn == nil then error(err) end
 
 local p, err = mysql.pool_create({ host = host, port = port, user = user,
-    password = password, db = db, raise = false, size = 2 })
+    password = password, db = db, size = 2 })
 
 function test_old_api(t, conn)
     t:plan(16)
@@ -63,7 +63,7 @@ function test_old_api(t, conn)
     end)
 
     t:q('DROP TABLE IF EXISTS unknown_table', nil)
-    local tuples, reason = conn:execute('DROP TABLE unknown_table')
+    local status, tuples, reason = pcall(conn.execute, conn, 'DROP TABLE unknown_table')
     t:like(reason, 'unknown_table', 'error')
     t:ok(conn:close(), "close")
 end
