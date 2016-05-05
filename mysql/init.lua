@@ -57,8 +57,7 @@ end
 
 local function conn_put(conn)
     local mysqlconn = conn.conn
-    --erase conn for gc
-    conn.conn = nil
+    ffi.gc(conn.__gc_hook, nil)
     if not conn.queue:get() then
         conn.usable = false
         return nil
