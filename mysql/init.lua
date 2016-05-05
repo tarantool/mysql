@@ -68,8 +68,8 @@ conn_mt = {
             else
                 status, datas = self.conn:execute(sql)
             end
-            if status ~= 1 then
-                self.queue:put(status == 0)
+            if status ~= 0 then
+                self.queue:put(status > 0)
                 return error(datas)
             end
             self.queue:put(true)

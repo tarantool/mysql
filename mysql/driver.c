@@ -94,7 +94,7 @@ lua_mysql_push_error(struct lua_State *L, MYSQL *conn)
 		lua_pushnumber(L, -1);
 		break;
 	default:
-		lua_pushnumber(L, 0);
+		lua_pushnumber(L, 1);
 	}
 	safe_pushstring(L, (char *)mysql_error(conn));
 	return 2;
@@ -204,7 +204,7 @@ lua_mysql_execute(struct lua_State *L)
 	if (err)
 		return lua_mysql_push_error(L, conn);
 
-	lua_pushnumber(L, 1);
+	lua_pushnumber(L, 0);
 	int ret_count = 2;
 	int result_no = 0;
 
@@ -292,8 +292,8 @@ lua_mysql_execute_prepared(struct lua_State *L)
 	 * string from lua */
 	uint64_t *values = NULL;
 
-	/* We hope that all should be fine and push 1 (OK) */
-	lua_pushnumber(L, 1);
+	/* We hope that all should be fine and push 0 (OK) */
+	lua_pushnumber(L, 0);
 	ret_count = 1;
 	stmt = mysql_stmt_init(conn);
 	if ((error = !stmt))
@@ -372,7 +372,6 @@ lua_mysql_execute_prepared(struct lua_State *L)
 		result_binds[col_no].is_null = (my_bool *)malloc(sizeof(my_bool));
 	}
 	mysql_stmt_bind_result(stmt, result_binds);
-
 	lua_newtable(L);
 	unsigned int row_idx = 1;
 	while (true) {
@@ -396,7 +395,7 @@ lua_mysql_execute_prepared(struct lua_State *L)
 		lua_settable(L, -3);
 		++row_idx;
 	}
-	lua_settable(L, - 3);
+	lua_settable(L, -3);
 	ret_count = 2;
 
 done:
@@ -554,7 +553,7 @@ lua_mysql_connect(struct lua_State *L)
 		return fail ? lua_error(L) : 2;
 	}
 
-	lua_pushinteger(L, 1);
+	lua_pushnumber(L, 0);
 	MYSQL **conn_p = (MYSQL **)lua_newuserdata(L, sizeof(MYSQL *));
 	*conn_p = conn;
 	luaL_getmetatable(L, mysql_driver_label);
