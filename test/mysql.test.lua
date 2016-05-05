@@ -63,7 +63,7 @@ function test_old_api(t, conn)
     end)
 
     t:q('DROP TABLE IF EXISTS unknown_table', nil)
-    local status, tuples, reason = pcall(conn.execute, conn, 'DROP TABLE unknown_table')
+    local status, reason = pcall(conn.execute, conn, 'DROP TABLE unknown_table')
     t:like(reason, 'unknown_table', 'error')
     t:ok(conn:close(), "close")
 end
