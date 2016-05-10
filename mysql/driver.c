@@ -81,6 +81,17 @@ mysql_wait_pending(MYSQL *conn, int status)
 		(wait_res & COIO_WRITE ? MYSQL_WAIT_WRITE : 0);
 }
 
+/*
+ * Push native lua error with code -3
+ */
+static int
+lua_push_error(struct lua_State *L)
+{
+	lua_pushnumber(L, -3);
+	lua_insert(L, -2);
+	return 2;
+}
+
 /* Push connection status and error message to lua stack.
  * Status is -1 if connection is dead or 0 if it is still alive
  */
@@ -229,7 +240,7 @@ lua_mysql_execute(struct lua_State *L)
 				return 1;
 			}
 			if (fail) {
-				return lua_error(L);
+				return lua_push_error(L);
 			}
 			lua_settable(L, -3);
 		}
@@ -428,7 +439,7 @@ done:
 		lua_pushnumber(L, -2);
 		return 1;
 	}
-	return fail ? lua_error(L) : ret_count;
+	return fail ? lua_push_error(L) : ret_count;
 }
 
 /**
@@ -519,7 +530,7 @@ lua_mysql_connect(struct lua_State *L)
 		lua_pushinteger(L, -1);
 		int fail = safe_pushstring(L,
 					  "Can not allocate memory for connector");
-		return fail ? lua_error(L): 2;
+		return fail ? lua_push_error(L): 2;
 	}
 
 	int iport = 0;
@@ -550,7 +561,7 @@ lua_mysql_connect(struct lua_State *L)
 		lua_pushinteger(L, -1);
 		int fail = safe_pushstring(L, (char *)mysql_error(tmp_conn));
 		mysql_close(tmp_conn);
-		return fail ? lua_error(L) : 2;
+		return fail ? lua_push_error(L) : 2;
 	}
 
 	lua_pushnumber(L, 0);
