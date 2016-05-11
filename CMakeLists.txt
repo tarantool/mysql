@@ -8,8 +8,6 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # Fetch and patch mariadb-connector-c submodule
-execute_process(COMMAND git submodule update --init --recursive
-    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
 ExternalProject_Add(mariadb-connector-c
     SOURCE_DIR "${CMAKE_SOURCE_DIR}/mariadb-connector-c"
     CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_C_FLAGS=-fPIC
