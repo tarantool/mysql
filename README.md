@@ -15,7 +15,7 @@ Clone repository and then build it using CMake:
 
 ``` bash
 git clone https://github.com/tarantool/mysql.git tarantool-mysql
-cd tarantool-mysql && cmake . -DCMAKE_BUILD_TYPE=RelWithDebugInfo
+cd tarantool-mysql && cmake . -DCMAKE_BUILD_TYPE=RelWithDebInfo
 make
 make install
 ```
@@ -32,11 +32,13 @@ See [tarantool/rocks][TarantoolRocks] for LuaRocks configuration details.
 
 ``` lua
 local mysql = require('mysql')
-local conn = mysql.connect({host = localhost, user = 'user', password = 'password', db = 'db'})
-local status, tuples = conn:execute("SELECT ? AS a, 'xx' AS b", 42))
+local pool = mysql.pool_create({ host = '127.0.0.1', user = 'user', password = 'password', db = 'db', size = 5 })
+local conn = pool:get()
+local tuples, status  = conn:execute("SELECT ? AS a, 'xx' AS b, NULL as c", 42))
 conn:begin()
 conn:execute("INSERT INTO test VALUES(1, 2, 3)")
 conn:commit()
+pool:put(conn)
 ```
 
 ## API Documentation
@@ -47,36 +49,32 @@ Connect to a database.
 
 *Options*:
 
- - `host` - a hostname to connect
- - `port` - a port numner to connect
+ - `host` - hostname to connect to
+ - `port` - port number to connect to
  - `user` - username
- - `password` - a password
- - `db` - a database name
- - `raise` = false - raise an exceptions instead of returning nil, reason in
-   all API functions
+ - `password` - password
+ - `db` - database name
 
 *Returns*:
 
  - `connection ~= nil` on success
- - `nil, reason` on error if `raise` is false
- - `error(reason)` on error if `raise` is true
+ - `error(reason)` on error
 
 ### `conn:execute(statement, ...)`
 
 Execute a statement with arguments in the current transaction.
 
 *Returns*:
- - `true, { { column1 = value, column2 = value }, ... }, { {column1 = value, ... }, ...}` on success
- - `nil, reason` on error if `raise` is false
- - `error(reason)` on error if `raise` is true
+ - `{ { column1 = value, column2 = value }, ... }, { {column1 = value, ... }, ...}, true` on success
+ - `error(reason)` on error
 
 *Example*:
 ```
 tarantool> conn:execute("SELECT ? AS a, 'xx' AS b", 42)
 ---
-- - true
-- - a: 42
-    b: xx
+- - - a: 42
+      b: xx
+- true
 ...
 ```
 
@@ -107,36 +105,42 @@ Execute a dummy statement to check that connection is alive.
  - `true` on success
  - `false` on failure
 
-### `mysql.pool_create({host = host, port = port, user = user, password = password, db = db, size = size)`
+### `conn:quote()`
+
+Quote a query string.
+
+*Returns*:
+
+ - `quoted_string` on success
+ - `error(reason)` on error
+
+### `pool = mysql.pool_create(opts = {})`
 
 Create a connection pool with count of size established connections.
 
 *Options*:
 
- - `host` - a hostname to connect
- - `port` - a port numner to connect
+ - `host` - hostname to connect to
+ - `port` - port number to connect to
  - `user` - username
- - `password` - a password
- - `db` - a database name
- - `raise` = false - raise an exceptions instead of returning nil, reason in
-   all API functions
+ - `password` - password
+ - `db` - database name
  - `size` - count of connections in pool
 
 *Returns*
 
  - `pool ~=nil` on success
- - `nil, reason` on error if `raise` is false
- - `error(reason)` on error if `raise` is true
+ - `error(reason)` on error
 
-### `pool:get()`
+### `conn = pool:get()`
 
-Get a connection from pool. Reset connection before return it. If connection
+Get a connection from pool. Reset connection before returning it. If connection
 is broken then it will be reestablished. If there is no free connections then
 calling fiber will sleep until another fiber returns some connection to pool.
 
 *Returns*:
 
- - `connection ~= nil`
+ - `conn ~= nil`
  
 ### `pool:put(conn)`
 
