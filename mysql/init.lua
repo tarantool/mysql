@@ -23,7 +23,6 @@ end
 local function conn_get(pool)
     local mysql_conn = pool.queue:get()
     local status
-    local k = mysql_conn
     if mysql_conn == nil then
         status, mysql_conn = driver.connect(pool.host, pool.port or 0,
                                             pool.user, pool.pass, pool.db)
