@@ -65,7 +65,7 @@ Connect to a database.
 Execute a statement with arguments in the current transaction.
 
 *Returns*:
- - `{ { column1 = value, column2 = value }, ... }, { {column1 = value, ... }, ...}, true` on success
+ - `{ { { column1 = value, column2 = value }, ... }, { {column1 = value, ... }, ...}, ...}, true` on success
  - `error(reason)` on error
 
 *Example*:

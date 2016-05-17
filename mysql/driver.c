@@ -208,7 +208,8 @@ lua_mysql_execute(struct lua_State *L)
 		status = mysql_wait_pending(conn, status);
 		if (fiber_is_cancelled()) {
 			lua_pushnumber(L, -2);
-			return 1;
+			safe_pushstring(L, "Fiber was cancelled");
+			return 2;
 		}
 		status = mysql_real_query_cont(&err, conn, status);
 	}
@@ -237,7 +238,8 @@ lua_mysql_execute(struct lua_State *L)
 			mysql_free_result(res);
 			if (fiber_is_cancelled()) {
 				lua_pushnumber(L, -2);
-				return 1;
+				safe_pushstring(L, "Fiber was cancelled");
+				return 2;
 			}
 			if (fail) {
 				return lua_push_error(L);
@@ -249,7 +251,8 @@ lua_mysql_execute(struct lua_State *L)
 			status = mysql_wait_pending(conn, status);
 			if (fiber_is_cancelled()) {
 				lua_pushnumber(L, -2);
-				return 1;
+				safe_pushstring(L, "Fiber was cancelled");
+				return 2;
 			}
 			status = mysql_next_result_cont(&next_res, conn, status);
 		}
@@ -437,7 +440,8 @@ done:
 	}
 	if (fiber_is_cancelled()) {
 		lua_pushnumber(L, -2);
-		return 1;
+		safe_pushstring(L, "Fiber was cancelled");
+		return 2;
 	}
 	return fail ? lua_push_error(L) : ret_count;
 }
@@ -552,7 +556,8 @@ lua_mysql_connect(struct lua_State *L)
 		if (fiber_is_cancelled()) {
 			mysql_close(tmp_conn);
 			lua_pushnumber(L, -2);
-			return 1;
+			safe_pushstring(L, "Fiber was cancelled");
+			return 2;
 		}
 		status = mysql_real_connect_cont(&conn, tmp_conn, status);
 	}
