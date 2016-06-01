@@ -308,7 +308,8 @@ lua_mysql_execute_prepared(struct lua_State *L)
 
 	/* We hope that all should be fine and push 0 (OK) */
 	lua_pushnumber(L, 0);
-	ret_count = 1;
+	lua_newtable(L);
+	ret_count = 2;
 	stmt = mysql_stmt_init(conn);
 	if ((error = !stmt))
 		goto done;
@@ -368,8 +369,6 @@ lua_mysql_execute_prepared(struct lua_State *L)
 	if (error)
 		goto done;
 
-	lua_newtable(L);
-	lua_pushnumber(L, 1);
 	meta = mysql_stmt_result_metadata(stmt);
 	if (!meta)
 		goto done;
@@ -386,6 +385,7 @@ lua_mysql_execute_prepared(struct lua_State *L)
 		result_binds[col_no].is_null = (my_bool *)malloc(sizeof(my_bool));
 	}
 	mysql_stmt_bind_result(stmt, result_binds);
+	lua_pushnumber(L, 1);
 	lua_newtable(L);
 	unsigned int row_idx = 1;
 	while (true) {
@@ -410,7 +410,6 @@ lua_mysql_execute_prepared(struct lua_State *L)
 		++row_idx;
 	}
 	lua_settable(L, -3);
-	ret_count = 2;
 
 done:
 	if (error)
