@@ -24,8 +24,8 @@ env:
       - OS=debian DIST=jessie
       - OS=debian DIST=stretch
 
-#matrix:
-#    allow_failures:
+matrix:
+    allow_failures:
 #      - env: OS=el DIST=6
 #      - env: OS=el DIST=7
 #      - env: OS=fedora DIST=23
@@ -37,7 +37,7 @@ env:
 #      - env: OS=ubuntu DIST=yakkety
 #      - env: OS=debian DIST=wheezy
 #      - env: OS=debian DIST=jessie
-#      - env: OS=debian DIST=stretch
+      - env: OS=debian DIST=stretch
 
 script:
   - git describe --long
