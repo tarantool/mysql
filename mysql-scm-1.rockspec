@@ -19,5 +19,13 @@ external_dependencies = {
 }
 build = {
     type = 'cmake',
+    variables = {
+        CMAKE_BUILD_TYPE="RelWithDebInfo",
+        INSTALL_PREFIX="$(PREFIX)",
+        INSTALL_BINDIR="$(BINDIR)",
+        INSTALL_LIBDIR="$(LIBDIR)",
+        INSTALL_LUADIR="$(LUADIR)",
+        INSTALL_CONFDIR="$(CONFDIR)",
+    },
 }
 -- vim: syntax=lua
