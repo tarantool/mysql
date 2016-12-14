@@ -15,24 +15,9 @@ dependencies = {
 external_dependencies = {
     TARANTOOL = {
         header = "tarantool/module.h"
-    },
-    MYSQL = {
-        header = "mysql/mysql.h",
     }
 }
 build = {
-    type = 'builtin',
-    modules = {
-        ['mysql.driver'] = {
-            sources = 'mysql/driver.c',
-            incdirs = {
-                "$(TARANTOOL_INCDIR)/tarantool",
-                "$(MYSQL_INCDIR)/mysql"
-            },
-            libdir = "$(MYSQL_LIBDIR)",
-            libraries = "mysqlclient"
-        },
-        ['mysql.init'] = 'mysql/init.lua',
-    }
+    type = 'cmake',
 }
 -- vim: syntax=lua
