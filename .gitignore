@@ -17,3 +17,8 @@ install_manifest.txt
 *.xlog*
 *~
 .gdb_history
+mariadb-connector-c-prefix/
+mariadb-connector-c/include/mariadb_version.h
+mariadb-connector-c/unittest/libmariadb/fingerprint.list
+mariadb-connector-c/unittest/libmariadb/ssl.c
+lib/
