@@ -69,18 +69,6 @@ lua_check_mysqlconn(struct lua_State *L, int index)
 	return *conn_p;
 }
 
-static inline int
-mysql_wait_pending(MYSQL *conn, int status)
-{
-	int sock = mysql_get_socket(conn);
-	int coio_event = 0;
-	coio_event |= (status & MYSQL_WAIT_READ ? COIO_READ : 0);
-	coio_event |= (status & MYSQL_WAIT_WRITE ? COIO_WRITE : 0);
-	int wait_res = coio_wait(sock, coio_event, TIMEOUT_INFINITY);
-	return 0 | (wait_res & COIO_READ ? MYSQL_WAIT_READ : 0) |
-		(wait_res & COIO_WRITE ? MYSQL_WAIT_WRITE : 0);
-}
-
 /*
  * Push native lua error with code -3
  */
@@ -157,7 +145,6 @@ lua_mysql_push_value(struct lua_State *L, MYSQL_FIELD *field,
 static int
 lua_mysql_fetch_result(struct lua_State *L)
 {
-	MYSQL *conn = (MYSQL *)lua_topointer(L, 1);
 	MYSQL_RES *result = (MYSQL_RES *)lua_topointer(L, 2);
 
 	MYSQL_ROW row;
@@ -165,13 +152,7 @@ lua_mysql_fetch_result(struct lua_State *L)
 	MYSQL_FIELD *fields = mysql_fetch_fields(result);
 	lua_newtable(L);
 	do {
-		int status = mysql_fetch_row_start(&row, result);
-		while (status) {
-			status = mysql_wait_pending(conn, status);
-			if (fiber_is_cancelled())
-				return 0;
-			status = mysql_fetch_row_cont(&row, result, status);
-		}
+		row = mysql_fetch_row(result);
 		if (!row)
 			break;
 		lua_pushnumber(L, row_idx);
@@ -201,18 +182,9 @@ lua_mysql_execute(struct lua_State *L)
 	MYSQL *conn = lua_check_mysqlconn(L, 1);
 	size_t len;
 	const char *sql = lua_tolstring(L, 2, &len);
-	int status, err;
+	int err;
 
-	status = mysql_real_query_start(&err, conn, sql, len);
-	while (status) {
-		status = mysql_wait_pending(conn, status);
-		if (fiber_is_cancelled()) {
-			lua_pushnumber(L, -2);
-			safe_pushstring(L, "Fiber was cancelled");
-			return 2;
-		}
-		status = mysql_real_query_cont(&err, conn, status);
-	}
+	err = mysql_real_query(conn, sql, len);
 	if (err)
 		return lua_mysql_push_error(L, conn);
 
@@ -246,16 +218,7 @@ lua_mysql_execute(struct lua_State *L)
 			}
 			lua_settable(L, -3);
 		}
-		int next_res, status = mysql_next_result_start(&next_res, conn);
-		while (status) {
-			status = mysql_wait_pending(conn, status);
-			if (fiber_is_cancelled()) {
-				lua_pushnumber(L, -2);
-				safe_pushstring(L, "Fiber was cancelled");
-				return 2;
-			}
-			status = mysql_next_result_cont(&next_res, conn, status);
-		}
+		int next_res = mysql_next_result(conn);
 		if (next_res < 0)
 			break;
 	}
@@ -295,7 +258,7 @@ lua_mysql_execute_prepared(struct lua_State *L)
 	MYSQL *conn = lua_check_mysqlconn(L, 1);
 	size_t len;
 	const char *sql = lua_tolstring(L, 2, &len);
-	int ret_count = 0, fail = 0, error = 0, status;
+	int ret_count = 0, fail = 0, error = 0;
 
 	MYSQL_STMT *stmt = NULL;
 	MYSQL_RES *meta = NULL;
@@ -313,13 +276,7 @@ lua_mysql_execute_prepared(struct lua_State *L)
 	stmt = mysql_stmt_init(conn);
 	if ((error = !stmt))
 		goto done;
-	status = mysql_stmt_prepare_start(&error, stmt, sql, len);
-	while (status) {
-		status = mysql_wait_pending(conn, status);
-		if (fiber_is_cancelled())
-			goto done;
-		status = mysql_stmt_prepare_cont(&error, stmt, status);
-	}
+	error = mysql_stmt_prepare(stmt, sql, len);
 	if (error)
 		goto done;
 	/* Alloc space for input parameters */
@@ -359,13 +316,7 @@ lua_mysql_execute_prepared(struct lua_State *L)
 		}
 	}
 	mysql_stmt_bind_param(stmt, param_binds);
-	status = mysql_stmt_execute_start(&error, stmt);
-	while (status) {
-		status = mysql_wait_pending(conn, status);
-		if (fiber_is_cancelled())
-			goto done;
-		status = mysql_stmt_execute_cont(&error, stmt, status);
-	}
+	error = mysql_stmt_execute(stmt);
 	if (error)
 		goto done;
 
@@ -389,14 +340,7 @@ lua_mysql_execute_prepared(struct lua_State *L)
 	lua_newtable(L);
 	unsigned int row_idx = 1;
 	while (true) {
-		int has_no_row;
-		status = mysql_stmt_fetch_start(&has_no_row, stmt);
-		while (status) {
-			status = mysql_wait_pending(conn, status);
-			if (fiber_is_cancelled())
-				goto done;
-			status = mysql_stmt_fetch_cont(&has_no_row, stmt, status);
-		}
+		int has_no_row = mysql_stmt_fetch(stmt);
 		if (has_no_row)
 			break;
 		lua_pushnumber(L, row_idx);
@@ -429,14 +373,8 @@ done:
 	}
 	if (meta)
 		mysql_stmt_free_result(stmt);
-	if (stmt) {
-		my_bool ret;
-		status = mysql_stmt_close_start(&ret, stmt);
-		while (status) {
-			status = mysql_wait_pending(conn, status);
-			status = mysql_stmt_close_cont(&ret, stmt, status);
-		}
-	}
+	if (stmt)
+		mysql_stmt_close(stmt);
 	if (fiber_is_cancelled()) {
 		lua_pushnumber(L, -2);
 		safe_pushstring(L, "Fiber was cancelled");
@@ -509,14 +447,24 @@ lua_mysql_quote(struct lua_State *L)
 	return 1;
 }
 
+static int
+mysql_wait_for_io(my_socket socket, my_bool is_read, int timeout)
+{
+	int coio_event = is_read ? COIO_READ : COIO_WRITE;
+	int wait_res;
+	wait_res = coio_wait(socket, coio_event,
+			     timeout >= 0? timeout / 1000.0: TIMEOUT_INFINITY);
+	if (wait_res == 0)
+		return 0;
+	return 1;
+}
+
 /**
  * connect to MySQL
  */
 static int
 lua_mysql_connect(struct lua_State *L)
 {
-	int status;
-
 	if (lua_gettop(L) < 5) {
 		luaL_error(L, "Usage: mysql.connect(host, port, user, "
 			   "password, db)");
@@ -546,20 +494,11 @@ lua_mysql_connect(struct lua_State *L)
 		iport = atoi(port); /* 0 is ok */
 	}
 
-	mysql_options(tmp_conn, MYSQL_OPT_NONBLOCK, 0);
-	status = mysql_real_connect_start(&conn, tmp_conn, host, user, pass,
+	mysql_options(tmp_conn, MYSQL_OPT_IO_WAIT, mysql_wait_for_io);
+
+	conn = mysql_real_connect(tmp_conn, host, user, pass,
 		db, iport, usocket,
 		CLIENT_MULTI_STATEMENTS | CLIENT_MULTI_RESULTS);
-	while (status) {
-		status = mysql_wait_pending(tmp_conn, status);
-		if (fiber_is_cancelled()) {
-			mysql_close(tmp_conn);
-			lua_pushnumber(L, -2);
-			safe_pushstring(L, "Fiber was cancelled");
-			return 2;
-		}
-		status = mysql_real_connect_cont(&conn, tmp_conn, status);
-	}
 
 	if (!conn) {
 		lua_pushinteger(L, -1);
