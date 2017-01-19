@@ -1,3 +1,3 @@
 [submodule "mariadb-connector-c"]
 	path = mariadb-connector-c
-	url = git@github.com:georgykirichenko/mariadb-connector-c.git
+	url = https://github.com/tarantool/mariadb-connector-c.git
