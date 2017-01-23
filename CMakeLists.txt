@@ -34,17 +34,9 @@ if (EXISTS "${CMAKE_SOURCE_DIR}/.git" AND GIT)
     endif()
 endif()
 
-add_subdirectory(mariadb-connector-c)
-#set_target_properties(mariadb-connector-c PROPERTIES COMPILE_FLAGS "-fPIC")
-#ExternalProject_Add(mariadb-connector-c
-#    SOURCE_DIR "${CMAKE_SOURCE_DIR}/mariadb-connector-c"
-#    CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_C_FLAGS=-fPIC
-#        -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/lib)
+add_subdirectory(mariadb-connector-c EXCLUDE_FROM_ALL)
 
 include_directories("${CMAKE_SOURCE_DIR}/mariadb-connector-c/include")
-#link_directories(${MYSQL_LIBRARY_DIRS})
-#set(MARIADB_LIBRARY "${CMAKE_BINARY_DIR}/lib/lib/mariadb/libmysqlclient.a")
-
 include_directories(${TARANTOOL_INCLUDE_DIRS})
 
 # Set CFLAGS
