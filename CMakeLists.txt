@@ -36,7 +36,7 @@ endif()
 
 add_subdirectory(mariadb-connector-c EXCLUDE_FROM_ALL)
 
-include_directories("${CMAKE_SOURCE_DIR}/mariadb-connector-c/include")
+include_directories("${CMAKE_SOURCE_DIR}/mariadb-connector-c/include" "${CMAKE_BINARY_DIR}/mariadb-connector-c/include")
 include_directories(${TARANTOOL_INCLUDE_DIRS})
 
 # Set CFLAGS
