@@ -595,7 +595,7 @@ luaopen_mysql_driver(lua_State *L)
 	if (mysql_library_init(0, NULL, NULL))
 		luaL_error(L, "Failed to initialize mysql library");
 
-	static const struct luaL_reg methods [] = {
+	static const struct luaL_Reg methods [] = {
 		{"execute_prepared", lua_mysql_execute_prepared},
 		{"execute",	lua_mysql_execute},
 		{"quote",	lua_mysql_quote},
@@ -615,7 +615,7 @@ luaopen_mysql_driver(lua_State *L)
 	lua_pop(L, 1);
 
 	lua_newtable(L);
-	static const struct luaL_reg meta [] = {
+	static const struct luaL_Reg meta [] = {
 		{"connect", lua_mysql_connect},
 		{NULL, NULL}
 	};
