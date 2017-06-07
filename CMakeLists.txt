@@ -43,6 +43,11 @@ include_directories(${TARANTOOL_INCLUDE_DIRS})
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wall -Wextra")
 
+if(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -undefined dynamic_lookup")
+    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -undefined dynamic_lookup")
+endif()
+
 # Build module
 add_subdirectory(mysql)
 
