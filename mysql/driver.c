@@ -332,7 +332,7 @@ lua_mysql_execute_prepared(struct lua_State *L)
 		result_binds[col_no].buffer_type = MYSQL_TYPE_STRING;
 		result_binds[col_no].buffer = (char *)malloc(fields[col_no].length);
 		result_binds[col_no].buffer_length = fields[col_no].length;
-		result_binds[col_no].length = (uint64_t *)malloc(sizeof(uint64_t));
+		result_binds[col_no].length = (unsigned long *)malloc(sizeof(unsigned long));
 		result_binds[col_no].is_null = (my_bool *)malloc(sizeof(my_bool));
 	}
 	mysql_stmt_bind_result(stmt, result_binds);
