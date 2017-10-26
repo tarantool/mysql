@@ -43,7 +43,7 @@ pool:put(conn)
 
 ## API Documentation
 
-### `conn = mysql:connect(opts = {})`
+### `conn = mysql.connect(opts = {})`
 
 Connect to a database.
 
