@@ -8,6 +8,7 @@
 
  * Tarantool 1.6.5+ with header files (tarantool && tarantool-dev packages)
  * MySQL 5.1 header files (libmysqlclient-dev package)
+ * OpenSSL development package
 
 ### Installation
 
