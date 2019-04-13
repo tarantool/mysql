@@ -6,28 +6,47 @@
 
 ### Prerequisites
 
- * Tarantool 1.6.5+ with header files (tarantool && tarantool-dev packages)
- * MySQL 5.1 header files (libmysqlclient-dev package)
- * OpenSSL development package
+* Tarantool 1.6.5+ with header files (tarantool && tarantool-dev /
+  tarantool-devel packages).
+* MySQL 5.1 header files (libmysqlclient-dev package).
+* OpenSSL development package.
+
+If you prefer to install the connector using a system package manager you don't
+need to manually install dependencies.
 
 ### Installation
 
+#### Build from sources
+
 Clone repository and then build it using CMake:
 
-``` bash
+```sh
 git clone https://github.com/tarantool/mysql.git tarantool-mysql
 cd tarantool-mysql && cmake . -DCMAKE_BUILD_TYPE=RelWithDebInfo
 make
 make install
 ```
 
-You can also use LuaRocks:
+#### tarantoolctl rocks
 
-``` bash
-luarocks install https://raw.githubusercontent.com/tarantool/mysql/master/mysql-scm-1.rockspec --local
+You can also use tarantoolctl rocks:
+
+```sh
+tarantoolctl rocks install mysql
 ```
 
-See [tarantool/rocks][TarantoolRocks] for LuaRocks configuration details.
+#### Install a package
+
+[Enable tarantool repository][tarantool_download] and install tarantool-mysql
+package:
+
+```sh
+apt-get install tarantool-mysql # Debian or Ubuntu
+yum install tarantool-mysql     # CentOS
+dnf install tarantool-mysql     # Fedora
+```
+
+[tarantool_download]: https://www.tarantool.io/en/download/
 
 ### Usage
 
