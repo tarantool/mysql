@@ -51,4 +51,5 @@ endif(APPLE)
 add_subdirectory(mysql)
 
 add_custom_target(check
-    COMMAND ${PROJECT_SOURCE_DIR}/test/mysql.test.lua)
+    COMMAND ${PROJECT_SOURCE_DIR}/test/mysql.test.lua
+    COMMAND ${PROJECT_SOURCE_DIR}/test/numeric_result.test.lua)

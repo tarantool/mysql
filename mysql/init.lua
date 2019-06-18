@@ -25,7 +25,8 @@ local function conn_get(pool)
     local status
     if mysql_conn == nil then
         status, mysql_conn = driver.connect(pool.host, pool.port or 0,
-                                            pool.user, pool.pass, pool.db)
+                                            pool.user, pool.pass,
+                                            pool.db, pool.use_numeric_result)
         if status < 0 then
             return error(mysql_conn)
         end
@@ -134,7 +135,9 @@ local function pool_create(opts)
     local queue = fiber.channel(opts.size)
 
     for i = 1, opts.size do
-        local status, conn = driver.connect(opts.host, opts.port or 0, opts.user, opts.password, opts.db)
+        local status, conn = driver.connect(opts.host, opts.port or 0,
+                                            opts.user, opts.password,
+                                            opts.db, opts.use_numeric_result)
         if status < 0 then
             while queue:count() > 0 do
                 local mysql_conn = queue:get()
@@ -155,6 +158,7 @@ local function pool_create(opts)
         pass        = opts.password,
         db          = opts.db,
         size        = opts.size,
+        use_numeric_result = opts.use_numeric_result,
 
         -- private variables
         queue       = queue,
@@ -206,7 +210,9 @@ pool_mt = {
 local function connect(opts)
     opts = opts or {}
 
-    local status, mysql_conn = driver.connect(opts.host, opts.port or 0, opts.user, opts.password, opts.db)
+    local status, mysql_conn = driver.connect(opts.host, opts.port or 0,
+                                              opts.user, opts.password,
+                                              opts.db, opts.use_numeric_result)
     if status < 0 then
         return error(mysql_conn)
     end
