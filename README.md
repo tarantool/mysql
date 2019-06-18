@@ -74,6 +74,8 @@ Connect to a database.
  - `user` - username
  - `password` - password
  - `db` - database name
+ - `use_numeric_result` - provide result of the "conn:execute" as ordered list
+   (true/false); default value: false
 
 *Returns*:
 
@@ -85,8 +87,42 @@ Connect to a database.
 Execute a statement with arguments in the current transaction.
 
 *Returns*:
- - `{ { { column1 = value, column2 = value }, ... }, { {column1 = value, ... }, ...}, ...}, true` on success
+
  - `error(reason)` on error
+ - `results, true` on success, where `results` is in the following form:
+
+(when `use_numeric_result = false` or is not set on a pool/connection creation)
+
+```lua
+{
+    { -- result set
+        {column1 = r1c1val, column2 = r1c2val, ...}, -- row
+        {column1 = r2c1val, column2 = r2c2val, ...}, -- row
+        ...
+    },
+    ...
+}
+```
+
+(when `use_numeric_result = true` on a pool/connection creation)
+
+```lua
+{
+    { -- result set
+        rows = {
+            {r1c1val, r1c2val, ...}, -- row
+            {r2c1val, r2c2val, ...}, -- row
+            ...
+        },
+        metadata = {
+            {type = 'long', name = 'col1'}, -- column meta
+            {type = 'long', name = 'col2'}, -- column meta
+            ...
+        },
+    },
+    ...
+}
+```
 
 *Example*:
 ```
@@ -146,6 +182,8 @@ Create a connection pool with count of size established connections.
  - `password` - password
  - `db` - database name
  - `size` - count of connections in pool
+ - `use_numeric_result` - provide result of the "conn:execute" as ordered list
+   (true/false); default value: false
 
 *Returns*
 
