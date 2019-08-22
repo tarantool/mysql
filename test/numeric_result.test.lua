@@ -19,7 +19,19 @@ if p == nil then error(err) end
 
 function test_mysql_numeric_result(t, conn)
     t:plan(1)
-    local results, ok = conn:execute('values (1,2,3),(4,5,6),(7,8,9)')
+    local results, ok = conn:execute('SELECT * FROM test')
+    for dk,dv in pairs(results) do
+        print("\tDATA: ", dk, dv)
+        for tk,tv in pairs(dv) do
+            print("\t\tTABLE: ", tk, tv)
+            for rk,rv in pairs(tv) do
+                print("\t\t\tROW: ", rk, rv)
+                for mk,mv in pairs(rv) do
+                    print("\t\t\t\tMETADATA: ", mk, mv)
+                end
+            end
+        end
+    end
     local expected = {
         {
             rows = {
@@ -28,9 +40,9 @@ function test_mysql_numeric_result(t, conn)
                 {7, 8, 9},
             },
             metadata = {
-                {type = 'long', name = '1'},
-                {type = 'long', name = '2'},
-                {type = 'long', name = '3'},
+                {type = 'long', name = 'col1'},
+                {type = 'long', name = 'col2'},
+                {type = 'long', name = 'col3'},
             }
         }
     }
@@ -40,6 +52,10 @@ end
 
 local test = tap.test('use_numeric_result option')
 test:plan(2)
+
+conn:execute('DROP TABLE IF EXISTS tarantool_mysql_test.test;')
+conn:execute('CREATE TABLE tarantool_mysql_test.test (col1 int, col2 int, col3 int)')
+conn:execute('INSERT INTO test (col1, col2, col3) values (1,2,3),(4,5,6),(7,8,9)')
 
 test:test('use_numeric_result via connection', test_mysql_numeric_result, conn)
 
