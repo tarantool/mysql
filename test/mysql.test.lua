@@ -171,7 +171,7 @@ local function test_mysql_int64(t, p)
 end
 
 local function test_connection_pool(test, pool)
-    test:plan(5)
+    test:plan(6)
 
     -- {{{ Case group: all connections are consumed initially.
 
@@ -207,6 +207,28 @@ local function test_connection_pool(test, pool)
         -- Restore everything as it was.
         table.insert(connections, conn)
         conn = nil -- luacheck: no unused
+
+        assert(pool.queue:is_empty(), 'test case postcondition fails')
+    end)
+
+    -- Case: get a connection with a timeout.
+    test:test('pool:get({timeout = <...>})', function(test)
+        test:plan(3)
+        assert(pool.queue:is_empty(), 'test case precondition fails')
+
+        -- Verify that we blocks until reach a timeout, then
+        -- unblocks and get `nil` as a result.
+        local latch = fiber.channel(1)
+        local conn
+        fiber.create(function()
+            conn = pool:get({timeout = 2})
+            latch:put(true)
+        end)
+        local res = latch:get(1)
+        test:is(res, nil, 'pool:get() blocks until a timeout')
+        local res = latch:get()
+        test:ok(res ~= nil, 'pool:get() unblocks after a timeout')
+        test:is(conn, nil, 'pool:get() returns nil if a timeout was reached')
 
         assert(pool.queue:is_empty(), 'test case postcondition fails')
     end)

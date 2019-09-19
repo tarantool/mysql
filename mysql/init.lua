@@ -7,6 +7,15 @@ local ffi = require('ffi')
 local pool_mt
 local conn_mt
 
+-- The marker for empty slots in a connection pool.
+--
+-- When a user puts a connection that is in an unusable state to a
+-- pool, we put this marker to a pool's internal connection queue.
+--
+-- Note: It should not be equal to `nil`, because fiber channel's
+-- `get` method returns `nil` when a timeout is reached.
+local POOL_EMPTY_SLOT = true
+
 --create a new connection
 local function conn_create(mysql_conn)
     local queue = fiber.channel(1)
@@ -20,10 +29,14 @@ local function conn_create(mysql_conn)
 end
 
 -- get connection from pool
-local function conn_get(pool)
-    local mysql_conn = pool.queue:get()
+local function conn_get(pool, timeout)
+    local mysql_conn = pool.queue:get(timeout)
+
+    -- A timeout was reached.
+    if mysql_conn == nil then return nil end
+
     local status
-    if mysql_conn == nil then
+    if mysql_conn == POOL_EMPTY_SLOT then
         status, mysql_conn = driver.connect(pool.host, pool.port or 0,
                                             pool.user, pool.pass,
                                             pool.db, pool.use_numeric_result)
@@ -31,12 +44,13 @@ local function conn_get(pool)
             return error(mysql_conn)
         end
     end
+
     local conn = conn_create(mysql_conn)
     -- we can use ffi gc to return mysql connection to pool
     conn.__gc_hook = ffi.gc(ffi.new('void *'),
             function(self)
                 mysql_conn:close()
-                pool.queue:put(nil)
+                pool.queue:put(POOL_EMPTY_SLOT)
             end)
     return conn
 end
@@ -46,7 +60,7 @@ local function conn_put(conn)
     ffi.gc(conn.__gc_hook, nil)
     if not conn.queue:get() then
         conn.usable = false
-        return nil
+        return POOL_EMPTY_SLOT
     end
     conn.usable = false
     return mysqlconn
@@ -171,7 +185,7 @@ local function pool_close(self)
     self.usable = false
     for i = 1, self.size do
         local mysql_conn = self.queue:get()
-        if mysql_conn ~= nil then
+        if mysql_conn ~= POOL_EMPTY_SLOT then
             mysql_conn:close()
         end
     end
@@ -179,11 +193,17 @@ local function pool_close(self)
 end
 
 -- Returns connection
-local function pool_get(self)
+local function pool_get(self, opts)
+    opts = opts or {}
+
     if not self.usable then
         return error('Pool is not usable')
     end
-    local conn = conn_get(self)
+    local conn = conn_get(self, opts.timeout)
+
+    -- A timeout was reached.
+    if conn == nil then return nil end
+
     conn:reset(self.user, self.pass, self.db)
     return conn
 end
@@ -193,7 +213,7 @@ local function pool_put(self, conn)
     if conn.usable then
         self.queue:put(conn_put(conn))
     else
-        self.queue:put(nil)
+        self.queue:put(POOL_EMPTY_SLOT)
     end
 end
 

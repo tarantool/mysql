@@ -190,15 +190,23 @@ Create a connection pool with count of size established connections.
  - `pool ~= nil` on success
  - `error(reason)` on error
 
-### `conn = pool:get()`
+### `conn = pool:get(opts)`
 
 Get a connection from pool. Reset connection before returning it. If connection
-is broken then it will be reestablished. If there is no free connections then
-calling fiber will sleep until another fiber returns some connection to pool.
+is broken then it will be reestablished.
+If there is no free connections and timeout is not specified then calling fiber
+will sleep until another fiber returns some connection to pool.
+If timeout is specified, and there is no free connections for the duration of the timeout,
+then the return value is nil.
+
+*Options*:
+
+ - `timeout` - maximum number of seconds to wait for a connection
 
 *Returns*:
 
- - `conn ~= nil`
+ - `conn ~= nil` on success
+ - `conn == nil` on there is no free connections when timeout option is specified
  
 ### `pool:put(conn)`
 
