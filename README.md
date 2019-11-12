@@ -63,7 +63,7 @@ pool:put(conn)
 
 ## API Documentation
 
-### `conn = mysql.connect(opts = {})`
+### `conn = mysql.connect(opts)`
 
 Connect to a database.
 
@@ -170,7 +170,7 @@ Quote a query string.
  - `quoted_string` on success
  - `error(reason)` on error
 
-### `pool = mysql.pool_create(opts = {})`
+### `pool = mysql.pool_create(opts)`
 
 Create a connection pool with count of size established connections.
 
@@ -187,7 +187,7 @@ Create a connection pool with count of size established connections.
 
 *Returns*
 
- - `pool ~=nil` on success
+ - `pool ~= nil` on success
  - `error(reason)` on error
 
 ### `conn = pool:get()`
