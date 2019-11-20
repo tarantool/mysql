@@ -6,7 +6,7 @@ package.cpath = "../?.so;../?.dylib;./?.so;./?.dylib"
 local mysql = require('mysql')
 local json = require('json')
 local tap = require('tap')
-local f = require('fiber')
+local fiber = require('fiber')
 
 local host, port, user, password, db = string.match(os.getenv('MYSQL') or '',
     "([^:]*):([^:]*):([^:]*):([^:]*):([^:]*)")
@@ -94,14 +94,14 @@ end
 function test_conn_concurrent(t, p)
     t:plan(1)
     local c = p:get()
-    local q = f.channel(2)
-    local t1 = f.time()
-    f.create(test_conn_fiber1, c, q)
-    f.create(test_conn_fiber2, c, q)
+    local q = fiber.channel(2)
+    local t1 = fiber.time()
+    fiber.create(test_conn_fiber1, c, q)
+    fiber.create(test_conn_fiber2, c, q)
     q:get()
     q:get()
     p:put(c)
-    t:ok(f.time() - t1 >= 0.95, 'concurrent connections')
+    t:ok(fiber.time() - t1 >= 0.95, 'concurrent connections')
 end
 
 
@@ -116,12 +116,16 @@ function test_mysql_int64(t, p)
     p:put(conn)
 end
 
-tap.test('connection old api', test_old_api, conn)
+local test = tap.test('mysql connector')
+test:plan(5)
+
+test:test('connection old api', test_old_api, conn)
 local pool_conn = p:get()
-tap.test('connection old api via pool', test_old_api, pool_conn)
+test:test('connection old api via pool', test_old_api, pool_conn)
 p:put(pool_conn)
-tap.test('test collection connections', test_gc, p)
-tap.test('connection concurrent', test_conn_concurrent, p)
-tap.test('int64', test_mysql_int64, p)
+test:test('garbage collection', test_gc, p)
+test:test('concurrent connections', test_conn_concurrent, p)
+test:test('int64', test_mysql_int64, p)
 p:close()
 
+os.exit(test:check() and 0 or 1)
