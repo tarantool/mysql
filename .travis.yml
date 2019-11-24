@@ -17,6 +17,8 @@ jobs:
       env: OS=el DIST=6
     - name: "CentOS 7 build + deploy RPM"
       env: OS=el DIST=7
+    - name: "CentOS 8 build + deploy RPM"
+      env: OS=el DIST=8
     - name: "Fedora 28 build + deploy RPM"
       env: OS=fedora DIST=28
     - name: "Fedora 29 build + deploy RPM"
@@ -33,6 +35,8 @@ jobs:
       env: OS=ubuntu DIST=cosmic
     - name: "Ubuntu Disco (19.04) build + deploy DEB"
       env: OS=ubuntu DIST=disco
+    - name: "Ubuntu Eoan (19.10) build + deploy DEB"
+      env: OS=ubuntu DIST=eoan
     - name: "Debian Jessie (8) build + deploy DEB"
       env: OS=debian DIST=jessie
     - name: "Debian Stretch (9) build + deploy DEB"
