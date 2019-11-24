@@ -2,6 +2,11 @@ sudo: false
 language: C
 services:
   - docker
+  # MySQL cannot be added as an addon to a certain job, so added
+  # as a service. A job w/o an addon has MySQL installed and
+  # started, while a job with MariaDB addon will delete MySQL,
+  # install and start MariaDB.
+  - mysql
 
 cache:
     directories:
@@ -13,6 +18,9 @@ env:
 
 jobs:
   include:
+    - name: "Run tests on MySQL"
+    - name: "Run tests on MariaDB"
+      addons: {mariadb: '10.4'}
     - name: "CentOS 6 build + deploy RPM"
       env: OS=el DIST=6
     - name: "CentOS 7 build + deploy RPM"
@@ -45,9 +53,14 @@ jobs:
       env: OS=debian DIST=buster
 
 script:
-  - git describe --long
-  - git clone https://github.com/packpack/packpack.git packpack
-  - packpack/packpack
+  - |
+    if [ -n "${OS}" ] && [ -n "${DIST}" ]; then
+        git describe --long;
+        git clone https://github.com/packpack/packpack.git packpack;
+        packpack/packpack;
+    else
+        ./.travis/test.sh;
+    fi;
 
 before_deploy:
   - ls -l build/
