@@ -19,7 +19,15 @@ if p == nil then error(err) end
 
 function test_mysql_numeric_result(t, conn)
     t:plan(1)
-    local results, ok = conn:execute('values (1,2,3),(4,5,6),(7,8,9)')
+
+    -- Prepare a table.
+    conn:execute('CREATE TABLE test_numeric_result (' ..
+                 'col1 INTEGER, col2 INTEGER, col3 INTEGER)')
+    conn:execute('INSERT INTO test_numeric_result VALUES ' ..
+                 '(1, 2, 3), (4, 5, 6), (7, 8, 9)')
+
+    local results, ok = conn:execute(
+        'SELECT col1, col2, col3 FROM test_numeric_result')
     local expected = {
         {
             rows = {
@@ -28,14 +36,17 @@ function test_mysql_numeric_result(t, conn)
                 {7, 8, 9},
             },
             metadata = {
-                {type = 'long', name = '1'},
-                {type = 'long', name = '2'},
-                {type = 'long', name = '3'},
+                {type = 'long', name = 'col1'},
+                {type = 'long', name = 'col2'},
+                {type = 'long', name = 'col3'},
             }
         }
     }
 
     t:is_deeply({ok, results}, {true, expected}, 'results contain numeric rows')
+
+    -- Drop the table.
+    conn:execute('DROP TABLE test_numeric_result')
 end
 
 local test = tap.test('use_numeric_result option')
