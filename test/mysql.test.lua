@@ -17,8 +17,9 @@ if conn == nil then error(err) end
 
 local p, err = mysql.pool_create({ host = host, port = port, user = user,
     password = password, db = db, size = 2 })
+if p == nil then error(err) end
 
-function test_old_api(t, conn)
+local function test_old_api(t, conn)
     t:plan(16)
     -- Add an extension to 'tap' module
     getmetatable(t).__index.q = function(test, stmt, result, ...)
@@ -63,12 +64,12 @@ function test_old_api(t, conn)
     end)
 
     t:q('DROP TABLE IF EXISTS unknown_table', nil)
-    local status, reason = pcall(conn.execute, conn, 'DROP TABLE unknown_table')
+    local _, reason = pcall(conn.execute, conn, 'DROP TABLE unknown_table')
     t:like(reason, 'unknown_table', 'error')
     t:ok(conn:close(), "close")
 end
 
-function test_gc(test, pool)
+local function test_gc(test, pool)
     test:plan(3)
 
     -- Case: verify that a pool tracks connections that are not
@@ -82,7 +83,7 @@ function test_gc(test, pool)
         pool:get()
 
         -- Loss another one.
-        local conn = pool:get()
+        local conn = pool:get() -- luacheck: no unused
         conn = nil
 
         -- Collect lost connections.
@@ -103,7 +104,7 @@ function test_gc(test, pool)
         local conn = pool:get()
         local ok = pcall(conn.execute, conn, 'bad query')
         test:ok(not ok, 'a query actually fails')
-        conn = nil
+        conn = nil -- luacheck: no unused
 
         -- Collect the lost connection.
         collectgarbage('collect')
@@ -121,7 +122,7 @@ function test_gc(test, pool)
         -- Get a connection, close it and loss the connection.
         local conn = pool:get()
         conn:close()
-        conn = nil
+        conn = nil -- luacheck: no unused
 
         -- Collect the lost connection.
         collectgarbage('collect')
@@ -131,21 +132,21 @@ function test_gc(test, pool)
     end)
 end
 
-function test_conn_fiber1(c, q)
-    for i = 1, 10 do
+local function test_conn_fiber1(c, q)
+    for _ = 1, 10 do
         c:execute('SELECT sleep(0.05)')
     end
     q:put(true)
 end
 
-function test_conn_fiber2(c, q)
-    for i = 1, 25 do
+local function test_conn_fiber2(c, q)
+    for _ = 1, 25 do
         c:execute('SELECT sleep(0.02)')
     end
     q:put(true)
 end
 
-function test_conn_concurrent(t, p)
+local function test_conn_concurrent(t, p)
     t:plan(1)
     local c = p:get()
     local q = fiber.channel(2)
@@ -158,13 +159,12 @@ function test_conn_concurrent(t, p)
     t:ok(fiber.time() - t1 >= 0.95, 'concurrent connections')
 end
 
-
-function test_mysql_int64(t, p)
+local function test_mysql_int64(t, p)
     t:plan(1)
-    conn = p:get()
+    local conn = p:get()
     conn:execute('create table int64test (id bigint)')
     conn:execute('insert into int64test values(1234567890123456789)')
-    local d, s = conn:execute('select id from int64test')
+    local d, _ = conn:execute('select id from int64test')
     conn:execute('drop table int64test')
     t:ok(d[1][1]['id'] == 1234567890123456789LL, 'int64 test')
     p:put(conn)
@@ -179,7 +179,7 @@ local function test_connection_pool(test, pool)
 
     -- Grab all connections from a pool.
     local connections = {}
-    for i = 1, pool.size do
+    for _ = 1, pool.size do
         table.insert(connections, pool:get())
     end
 
@@ -206,7 +206,7 @@ local function test_connection_pool(test, pool)
 
         -- Restore everything as it was.
         table.insert(connections, conn)
-        conn = nil
+        conn = nil -- luacheck: no unused
 
         assert(pool.queue:is_empty(), 'test case postcondition fails')
     end)
@@ -295,7 +295,7 @@ local function test_connection_pool(test, pool)
 
         -- Put the connection back, loss it and trigger GC.
         pool:put(conn)
-        conn = nil
+        conn = nil -- luacheck: no unused
         collectgarbage('collect')
 
         -- Verify that the pool is full.
@@ -339,7 +339,7 @@ local function test_connection_pool(test, pool)
 
         -- Put the connection back, loss it and trigger GC.
         pool:put(conn)
-        conn = nil
+        conn = nil -- luacheck: no unused
         collectgarbage('collect')
 
         -- Verify that the pool is full

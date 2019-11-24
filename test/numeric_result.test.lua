@@ -17,7 +17,7 @@ local p, err = mysql.pool_create({ host = host, port = port, user = user,
     password = password, db = db, size = 1, use_numeric_result = true })
 if p == nil then error(err) end
 
-function test_mysql_numeric_result(t, conn)
+local function test_mysql_numeric_result(t, conn)
     t:plan(1)
 
     -- Prepare a table.
