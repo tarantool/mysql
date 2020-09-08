@@ -33,18 +33,18 @@ jobs:
       env: OS=fedora DIST=29
     - name: "Fedora 30 build + deploy RPM"
       env: OS=fedora DIST=30
+    - name: "Fedora 31 build + deploy RPM"
+      env: OS=fedora DIST=31
     - name: "Ubuntu Trusty (14.04) build + deploy DEB"
       env: OS=ubuntu DIST=trusty
     - name: "Ubuntu Xenial (16.04) build + deploy DEB"
       env: OS=ubuntu DIST=xenial
     - name: "Ubuntu Bionic (18.04) build + deploy DEB"
       env: OS=ubuntu DIST=bionic
-    - name: "Ubuntu Cosmic (18.10) build + deploy DEB"
-      env: OS=ubuntu DIST=cosmic
-    - name: "Ubuntu Disco (19.04) build + deploy DEB"
-      env: OS=ubuntu DIST=disco
     - name: "Ubuntu Eoan (19.10) build + deploy DEB"
       env: OS=ubuntu DIST=eoan
+    - name: "Ubuntu Focal (20.04) build + deploy DEB"
+      env: OS=ubuntu DIST=focal
     - name: "Debian Jessie (8) build + deploy DEB"
       env: OS=debian DIST=jessie
     - name: "Debian Stretch (9) build + deploy DEB"
