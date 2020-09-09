@@ -9,9 +9,6 @@ local conn_mt
 
 -- The marker for empty slots in a connection pool.
 --
--- When a user puts a connection that is in an unusable state to a
--- pool, we put this marker to a pool's internal connection queue.
---
 -- Note: It should not be equal to `nil`, because fiber channel's
 -- `get` method returns `nil` when a timeout is reached.
 local POOL_EMPTY_SLOT = true
@@ -52,6 +49,17 @@ local function conn_get(pool, timeout)
                 mysql_conn:close()
                 pool.queue:put(POOL_EMPTY_SLOT)
             end)
+    -- If the connection belongs to a connection pool, it must be returned to
+    -- the pool when calling "close" without actually closing the connection.
+    -- In the case of a double "close", the behavior is the same as with a
+    -- simple connection.
+    conn.close = function(self)
+        if not self.usable then
+            error('Connection is not usable')
+        end
+        pool:put(self)
+        return true
+    end
     return conn
 end
 
@@ -217,7 +225,7 @@ local function pool_put(self, conn)
     if conn.usable then
         self.queue:put(conn_put(conn))
     else
-        self.queue:put(POOL_EMPTY_SLOT)
+        error('Connection is not usable')
     end
 end
 
