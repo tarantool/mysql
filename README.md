@@ -200,6 +200,14 @@ Update the connection authentication settings.
 
 Throws an error on failure.
 
+### `conn:close()`
+
+Close the individual connection or return it to a pool.
+
+Throws an error on failure.
+
+*Returns*: `true`
+
 ### `pool = mysql.pool_create(opts)`
 
 Create a connection pool with count of size established connections.
@@ -246,6 +254,12 @@ Return a connection to connection pool.
 *Options*
 
  - `conn` - a connection
+
+### `pool:close()`
+
+Close all connections in pool.
+
+*Returns*: `true`
 
 ## Comments
 
