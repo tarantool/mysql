@@ -35,8 +35,8 @@ local function conn_get(pool, timeout)
     -- A timeout was reached.
     if mysql_conn == nil then return nil end
 
-    local status
     if mysql_conn == POOL_EMPTY_SLOT then
+        local status
         status, mysql_conn = driver.connect(pool.host, pool.port or 0,
                                             pool.user, pool.pass,
                                             pool.db, pool.use_numeric_result)
@@ -163,9 +163,7 @@ local function pool_create(opts)
                 local mysql_conn = queue:get()
                 mysql_conn:close()
             end
-            if status < 0 then
-                error(conn)
-            end
+            error(conn)
         end
         queue:put(conn)
     end
