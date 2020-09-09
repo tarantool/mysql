@@ -171,7 +171,7 @@ local function test_mysql_int64(t, p)
 end
 
 local function test_connection_pool(test, pool)
-    test:plan(6)
+    test:plan(11)
 
     -- {{{ Case group: all connections are consumed initially.
 
@@ -302,13 +302,13 @@ local function test_connection_pool(test, pool)
 
         -- Put the connection back and verify that the pool is full.
         pool:put(conn)
-        test:ok(pool.queue:is_full(), 'a broken connection was given back')
+        test:ok(pool.queue:is_full(), 'a connection was given back')
     end)
 
     -- Case: the same, but loss and collect a connection after
     -- put.
     test:test('get, put and loss a connection', function(test)
-        test:plan(2)
+        test:plan(1)
 
         assert(pool.size >= 1, 'test case precondition fails')
 
@@ -321,14 +321,7 @@ local function test_connection_pool(test, pool)
         collectgarbage('collect')
 
         -- Verify that the pool is full.
-        test:ok(pool.queue:is_full(), 'a broken connection was given back')
-
-        -- Verify the pool will not be populated by a connection's
-        -- GC callback. Otherwise :put() will hang.
-        local item = pool.queue:get()
-        pool.queue:put(item)
-        test:ok(true, 'GC callback does not put back a connection that was ' ..
-            'put manually')
+        test:ok(pool.queue:is_full(), 'a connection was given back')
     end)
 
     -- Case: get a connection, broke it and put back.
@@ -350,7 +343,7 @@ local function test_connection_pool(test, pool)
     -- Case: the same, but loss and collect a connection after
     -- put.
     test:test('get, broke, put and loss a connection', function(test)
-        test:plan(3)
+        test:plan(2)
 
         assert(pool.size >= 1, 'test case precondition fails')
 
@@ -366,24 +359,10 @@ local function test_connection_pool(test, pool)
 
         -- Verify that the pool is full
         test:ok(pool.queue:is_full(), 'a broken connection was given back')
-
-        -- Verify the pool will not be populated by a connection's
-        -- GC callback. Otherwise :put() will hang.
-        local item = pool.queue:get()
-        pool.queue:put(item)
-        test:ok(true, 'GC callback does not put back a connection that was ' ..
-            'put manually')
     end)
 
-    --[[
-
-    -- It is unclear for now whether putting of closed connection
-    -- should be allowed. The second case, where GC collects lost
-    -- connection after :put(), does not work at the moment. See
-    -- gh-33.
-
-    -- Case: get a connection, close it and put back.
-    test:test('get, close and put a connection', function(test)
+    -- Case: get a connection and close it.
+    test:test('get and close a connection', function(test)
         test:plan(1)
 
         assert(pool.size >= 1, 'test case precondition fails')
@@ -392,15 +371,13 @@ local function test_connection_pool(test, pool)
         local conn = pool:get()
         conn:close()
 
-        -- Put a connection back and verify that the pool is full.
-        pool:put(conn)
-        test:ok(pool.queue:is_full(), 'a broken connection was given back')
+        test:ok(pool.queue:is_full(), 'a connection was given back')
     end)
 
     -- Case: the same, but loss and collect a connection after
-    -- put.
-    test:test('get, close, put and loss a connection', function(test)
-        test:plan(2)
+    -- close.
+    test:test('get, close and loss a connection', function(test)
+        test:plan(1)
 
         assert(pool.size >= 1, 'test case precondition fails')
 
@@ -408,23 +385,64 @@ local function test_connection_pool(test, pool)
         local conn = pool:get()
         conn:close()
 
-        -- Put the connection back, loss it and trigger GC.
-        pool:put(conn)
-        conn = nil
+        conn = nil -- luacheck: no unused
         collectgarbage('collect')
 
         -- Verify that the pool is full
         test:ok(pool.queue:is_full(), 'a broken connection was given back')
-
-        -- Verify the pool will not be populated by a connection's
-        -- GC callback. Otherwise :put() will hang.
-        local item = pool.queue:get()
-        pool.queue:put(item)
-        test:ok(true, 'GC callback does not put back a connection that was ' ..
-            'put manually')
     end)
 
-    --]]
+    -- Case: get a connection, close and put it back.
+    test:test('get, close and put a connection', function(test)
+        test:plan(2)
+
+        assert(pool.size >= 1, 'test case precondition fails')
+
+        -- Get a connection.
+        local conn = pool:get()
+
+        conn:close()
+        test:ok(pool.queue:is_full(), 'a connection was given back')
+
+        -- Put must throw an error.
+        local res = pcall(pool.put, pool, conn)
+        test:ok(not res, 'an error is thrown on "put" after "close"')
+    end)
+
+     -- Case: close the same connection twice.
+    test:test('close a connection twice', function(test)
+        test:plan(2)
+
+        assert(pool.size >= 1, 'test case precondition fails')
+
+        local conn = pool:get()
+        conn:close()
+        test:ok(pool.queue:is_full(), 'a connection was given back')
+
+        local res = pcall(conn.close, conn)
+        test:ok(not res, 'an error is thrown on double "close"')
+    end)
+
+    -- Case: put the same connection twice.
+    test:test('put a connection twice', function(test)
+        test:plan(3)
+
+        assert(pool.size >= 2, 'test case precondition fails')
+
+        local conn_1 = pool:get()
+        local conn_2 = pool:get()
+        pool:put(conn_1)
+
+        test:ok(not pool.queue:is_full(),
+                'the same connection has not been "put" twice')
+
+        local res = pcall(pool.put, pool, conn_1)
+        test:ok(not res, 'an error is thrown on double "put"')
+
+        pool:put(conn_2)
+        test:ok(pool.queue:is_full(),
+                'all connections were returned to the pool')
+    end)
 
     assert(pool.queue:is_full(), 'case group postcondition fails')
 
@@ -469,7 +487,6 @@ test:plan(7)
 test:test('connection old api', test_old_api, conn)
 local pool_conn = p:get()
 test:test('connection old api via pool', test_old_api, pool_conn)
-p:put(pool_conn)
 test:test('garbage collection', test_gc, p)
 test:test('concurrent connections', test_conn_concurrent, p)
 test:test('int64', test_mysql_int64, p)
