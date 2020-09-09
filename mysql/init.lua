@@ -201,7 +201,7 @@ local function pool_close(self)
             mysql_conn:close()
         end
     end
-    return 1
+    return true
 end
 
 -- Returns connection
