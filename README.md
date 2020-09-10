@@ -77,18 +77,20 @@ Connect to a database.
  - `use_numeric_result` - provide result of the "conn:execute" as ordered list
    (true/false); default value: false
 
+Throws an error on failure.
+
 *Returns*:
 
  - `connection ~= nil` on success
- - `error(reason)` on error
 
 ### `conn:execute(statement, ...)`
 
 Execute a statement with arguments in the current transaction.
 
+Throws an error on failure.
+
 *Returns*:
 
- - `error(reason)` on error
  - `results, true` on success, where `results` is in the following form:
 
 (when `use_numeric_result = false` or is not set on a pool/connection creation)
@@ -165,10 +167,11 @@ Execute a dummy statement to check that connection is alive.
 
 Quote a query string.
 
+Throws an error on failure.
+
 *Returns*:
 
  - `quoted_string` on success
- - `error(reason)` on error
 
 ### `pool = mysql.pool_create(opts)`
 
@@ -185,10 +188,11 @@ Create a connection pool with count of size established connections.
  - `use_numeric_result` - provide result of the "conn:execute" as ordered list
    (true/false); default value: false
 
+Throws an error on failure.
+
 *Returns*
 
  - `pool ~= nil` on success
- - `error(reason)` on error
 
 ### `conn = pool:get(opts)`
 
