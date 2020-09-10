@@ -27,6 +27,21 @@ make
 make install
 ```
 
+#### Run tests
+
+To run the tests, the following preparatory steps must be completed:
+* Run mysql instance.
+* Connect a client to the instance and execute the commands:
+  * `CREATE USER 'test_user' IDENTIFIED WITH mysql_native_password BY 'pass';`
+  * `CREATE DATABASE tarantool_mysql_test;`
+  * `GRANT ALL PRIVILEGES ON *.* TO 'test_user';`
+* Define MYSQL environment variable using the following format:<br/>
+`ip:port:user:user_pass:db_name:`<br/>
+Example:<br/>
+`export MYSQL=127.0.0.1:3306:test_user:pass:tarantool_mysql_test:`
+
+The tests can now be run by `make check`.
+
 #### tarantoolctl rocks
 
 You can also use tarantoolctl rocks:
