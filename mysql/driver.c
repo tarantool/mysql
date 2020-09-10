@@ -663,9 +663,14 @@ lua_mysql_reset(lua_State *L)
 	const char *user = lua_tostring(L, 2);
 	const char *pass = lua_tostring(L, 3);
 	const char *db = lua_tostring(L, 4);
-	mysql_change_user(raw_conn, user, pass, db);
 
-	return 0;
+	if (mysql_change_user(raw_conn, user, pass, db) == 0) {
+		lua_pushboolean(L, 1);
+	} else {
+		lua_pushboolean(L, 0);
+	}
+
+	return 1;
 }
 
 LUA_API int

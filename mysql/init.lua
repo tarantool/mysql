@@ -123,7 +123,13 @@ conn_mt = {
                 self.queue:put(false)
                 error('Connection is broken')
             end
-            self.conn:reset(user, pass, db)
+            -- If the update of the connection settings fails, we must set
+            -- the connection to a "broken" state and throw an error.
+            local status = self.conn:reset(user, pass, db)
+            if not status then
+                self.queue:put(false)
+                error('Сonnection settings update failed.')
+            end
             self.queue:put(true)
         end,
 	quote = function(self, value)
