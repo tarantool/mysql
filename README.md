@@ -173,6 +173,18 @@ Throws an error on failure.
 
  - `quoted_string` on success
 
+### `conn:reset(user, pass, db)`
+
+Update the connection authentication settings.
+
+*Options*:
+
+ - `user` - username
+ - `pass` - password
+ - `db` - database name
+
+Throws an error on failure.
+
 ### `pool = mysql.pool_create(opts)`
 
 Create a connection pool with count of size established connections.
