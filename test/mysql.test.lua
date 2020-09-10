@@ -431,8 +431,40 @@ local function test_connection_pool(test, pool)
     -- }}}
 end
 
+local function test_connection_reset(test, pool)
+    test:plan(2)
+
+    assert(pool.queue:is_full(), 'test case precondition fails')
+
+    -- Case: valid credentials were used to "reset" the connection
+    test:test('reset connection successfully', function(test)
+        test:plan(1)
+
+        assert(pool.size >= 1, 'test case precondition fails')
+
+        local conn = pool:get()
+        conn:reset(pool.user, pool.pass, pool.db)
+        test:ok(conn:ping(), 'connection "reset" successfully')
+        pool:put(conn)
+    end)
+
+    -- Case: invalid credentials were used to "reset" the connection
+    test:test('reset connection failed', function(test)
+        test:plan(1)
+
+        assert(pool.size >= 1, 'test case precondition fails')
+
+        local conn = pool:get()
+        local check = pcall(conn.reset, conn, "guinea pig", pool.pass, pool.db)
+        test:ok(not check, 'connection "reset" fails')
+        pool:put(conn)
+    end)
+
+    assert(pool.queue:is_full(), 'test case postcondition fails')
+end
+
 local test = tap.test('mysql connector')
-test:plan(6)
+test:plan(7)
 
 test:test('connection old api', test_old_api, conn)
 local pool_conn = p:get()
@@ -442,6 +474,7 @@ test:test('garbage collection', test_gc, p)
 test:test('concurrent connections', test_conn_concurrent, p)
 test:test('int64', test_mysql_int64, p)
 test:test('connection pool', test_connection_pool, p)
+test:test('connection reset', test_connection_reset, p)
 p:close()
 
 os.exit(test:check() and 0 or 1)
