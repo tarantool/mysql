@@ -41,7 +41,7 @@ local function conn_get(pool, timeout)
                                             pool.user, pool.pass,
                                             pool.db, pool.use_numeric_result)
         if status < 0 then
-            return error(mysql_conn)
+            error(mysql_conn)
         end
     end
 
@@ -70,11 +70,11 @@ conn_mt = {
     __index = {
         execute = function(self, sql, ...)
             if not self.usable then
-                return error('Connection is not usable')
+                error('Connection is not usable')
             end
             if not self.queue:get() then
                 self.queue:put(false)
-                return error('Connection is broken')
+                error('Connection is broken')
             end
             local status, datas
             if select('#', ...) > 0 then
@@ -84,7 +84,7 @@ conn_mt = {
             end
             if status ~= 0 then
                 self.queue:put(status > 0)
-                return error(datas)
+                error(datas)
             end
             self.queue:put(true)
             return datas, true
@@ -104,11 +104,11 @@ conn_mt = {
         end,
         close = function(self)
             if not self.usable then
-                return error('Connection is not usable')
+                error('Connection is not usable')
             end
             if not self.queue:get() then
                 self.queue:put(false)
-                return error('Connection is broken')
+                error('Connection is broken')
             end
             self.usable = false
             self.conn:close()
@@ -117,22 +117,22 @@ conn_mt = {
         end,
         reset = function(self, user, pass, db)
             if not self.usable then
-                return error('Connection is not usable')
+                error('Connection is not usable')
             end
             if not self.queue:get() then
                 self.queue:put(false)
-                return error('Connection is broken')
+                error('Connection is broken')
             end
             self.conn:reset(user, pass, db)
             self.queue:put(true)
         end,
 	quote = function(self, value)
             if not self.usable then
-                return error('Connection is not usable')
+                error('Connection is not usable')
             end
             if not self.queue:get() then
                 self.queue:put(false)
-                return error('Connection is broken')
+                error('Connection is broken')
             end
             local ret = self.conn:quote(value)
             self.queue:put(true)
@@ -158,7 +158,7 @@ local function pool_create(opts)
                 mysql_conn:close()
             end
             if status < 0 then
-                return error(conn)
+                error(conn)
             end
         end
         queue:put(conn)
@@ -197,7 +197,7 @@ local function pool_get(self, opts)
     opts = opts or {}
 
     if not self.usable then
-        return error('Pool is not usable')
+        error('Pool is not usable')
     end
     local conn = conn_get(self, opts.timeout)
 
@@ -234,7 +234,7 @@ local function connect(opts)
                                               opts.user, opts.password,
                                               opts.db, opts.use_numeric_result)
     if status < 0 then
-        return error(mysql_conn)
+        error(mysql_conn)
     end
     return conn_create(mysql_conn)
 end
