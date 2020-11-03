@@ -7,6 +7,8 @@ local mysql = require('mysql')
 local json = require('json')
 local tap = require('tap')
 local fiber = require('fiber')
+local fio = require('fio')
+local ffi = require('ffi')
 
 local host, port, user, password, db = string.match(os.getenv('MYSQL') or '',
     "([^:]*):([^:]*):([^:]*):([^:]*):([^:]*)")
@@ -481,8 +483,41 @@ local function test_connection_reset(test, pool)
     assert(pool.queue:is_full(), 'test case postcondition fails')
 end
 
+local function test_underlying_conn_closed_during_gc(test)
+    test:plan(1)
+    if jit.os ~= 'Linux' then
+        test:skip('non-Linux OS')
+        return
+    end
+    -- Basing on the statement, that file descriptors are recycled
+    -- in ascending order. It means, that if we call open() and
+    -- immediately close(), we get the first vacant index for a
+    -- new resource in the file descriptor table. It is important
+    -- not to call any procedures between open() and close() that
+    -- may affect the file descriptor table. After that, we
+    -- immediately create connection, which creates a socket.
+    -- Socket is a resource, which occupies the first vacant index
+    -- in the file descriptor table. We check that the socket is
+    -- indeed destroyed by using fcntl() for this index (handle).
+    -- See: https://www.win.tue.nl/~aeb/linux/vfs/trail-2.html
+    local fh, err = fio.open('/dev/zero', {'O_RDONLY'})
+    if fh == nil then error(err) end
+    local handle = fh.fh
+    fh:close()
+    local conn, err = mysql.connect({ host = host, port = port, user = user,
+        password = password, db = db })
+    if conn == nil then error(err) end
+
+    -- Somehow we lost the connection handle.
+    conn = nil
+    collectgarbage()
+    ffi.cdef([[ int fcntl(int fd, int cmd, ...); ]])
+    local F_GETFD = 1
+    test:ok(ffi.C.fcntl(handle, F_GETFD) == -1, 'descriptor is closed')
+end
+
 local test = tap.test('mysql connector')
-test:plan(7)
+test:plan(8)
 
 test:test('connection old api', test_old_api, conn)
 local pool_conn = p:get()
@@ -492,6 +527,8 @@ test:test('concurrent connections', test_conn_concurrent, p)
 test:test('int64', test_mysql_int64, p)
 test:test('connection pool', test_connection_pool, p)
 test:test('connection reset', test_connection_reset, p)
+test:test('test_underlying_conn_closed_during_gc',
+          test_underlying_conn_closed_during_gc, p)
 p:close()
 
 os.exit(test:check() and 0 or 1)
