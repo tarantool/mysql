@@ -42,6 +42,19 @@
 #define TIMEOUT_INFINITY 365 * 86400 * 100.0
 static const char mysql_driver_label[] = "__tnt_mysql_driver";
 
+extern int luaL_nil_ref;
+
+/**
+ * Push ffi's NULL (cdata<void *>: NULL) onto the stack.
+ * Can be used as replacement of nil in Lua tables.
+ * @param L stack
+ */
+static inline void
+luaL_pushnull(struct lua_State *L)
+{
+    lua_rawgeti(L, LUA_REGISTRYINDEX, luaL_nil_ref);
+}
+
 struct mysql_connection {
 	MYSQL *raw_conn;
 	int use_numeric_result;
@@ -188,7 +201,7 @@ lua_mysql_push_value(struct lua_State *L, MYSQL_FIELD *field,
 		}
 
 		case MYSQL_TYPE_NULL:
-			lua_pushnil(L);
+			luaL_pushnull(L);
 			break;
 
 		case MYSQL_TYPE_LONGLONG: {
@@ -239,10 +252,12 @@ lua_mysql_fetch_result(struct lua_State *L)
 		unsigned long *len = mysql_fetch_lengths(result);
 		unsigned col_no;
 		for (col_no = 0; col_no < num_fields; ++col_no) {
-			if (!row[col_no])
-				continue;
-			lua_mysql_push_value(L, fields + col_no,
-					     row[col_no], len[col_no]);
+			if (!row[col_no]) {
+				luaL_pushnull(L);
+			} else {
+				lua_mysql_push_value(L, fields + col_no,
+						     row[col_no], len[col_no]);
+			}
 			if (conn->use_numeric_result) {
 				/* Assign to a column number. */
 				lua_rawseti(L, -2, col_no + 1);
@@ -354,12 +369,14 @@ lua_mysql_stmt_push_row(struct lua_State *L)
 	lua_newtable(L);
 	unsigned col_no;
 	for (col_no = 0; col_no < col_count; ++col_no) {
-		if (*results[col_no].is_null)
-			continue;
 		lua_pushstring(L, fields[col_no].name);
-		lua_mysql_push_value(L, fields + col_no,
-				     results[col_no].buffer,
-				     *results[col_no].length);
+		if (*results[col_no].is_null) {
+			luaL_pushnull(L);
+		} else {
+			lua_mysql_push_value(L, fields + col_no,
+					     results[col_no].buffer,
+					     *results[col_no].length);
+		}
 		lua_settable(L, -3);
 	}
 	return 1;

@@ -481,8 +481,18 @@ local function test_connection_reset(test, pool)
     assert(pool.queue:is_full(), 'test case postcondition fails')
 end
 
+local function test_ffi_null_printing(test, pool)
+    test:plan(1)
+    local conn, err = mysql.connect({ host = host, port = port, user = user,
+            password = password, db = db })
+    if conn == nil then error(err) end
+    local rows = conn:execute('SELECT 1 AS w, NULL AS x')
+    local encoded = json.encode(rows)
+    test:ok(encoded == '[[{"x":null,"w":1}]]', 'ffi null printing')
+end
+
 local test = tap.test('mysql connector')
-test:plan(7)
+test:plan(8)
 
 test:test('connection old api', test_old_api, conn)
 local pool_conn = p:get()
@@ -492,6 +502,7 @@ test:test('concurrent connections', test_conn_concurrent, p)
 test:test('int64', test_mysql_int64, p)
 test:test('connection pool', test_connection_pool, p)
 test:test('connection reset', test_connection_reset, p)
+test:test('ffi null printing', test_ffi_null_printing, p)
 p:close()
 
 os.exit(test:check() and 0 or 1)
