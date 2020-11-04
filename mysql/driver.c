@@ -42,9 +42,23 @@
 #define TIMEOUT_INFINITY 365 * 86400 * 100.0
 static const char mysql_driver_label[] = "__tnt_mysql_driver";
 
+static int luaL_nil_ref = LUA_REFNIL;
+
+/**
+ * Push ffi's NULL (cdata<void *>: NULL) onto the stack.
+ * Can be used as replacement of nil in Lua tables.
+ * @param L stack
+ */
+static inline void
+luaL_pushnull(struct lua_State *L)
+{
+	lua_rawgeti(L, LUA_REGISTRYINDEX, luaL_nil_ref);
+}
+
 struct mysql_connection {
 	MYSQL *raw_conn;
 	int use_numeric_result;
+	int keep_null;
 };
 
 /*
@@ -169,11 +183,23 @@ lua_mysql_field_type_to_string(enum enum_field_types type)
 	return mysql_field_type_strs[hash];
 }
 
-/* Push value retrieved from mysql field to lua stack */
+/**
+ * Push value retrieved from mysql field to lua stack.
+ *
+ * When `data` is NULL, `field` and len` parameters are
+ * ignored and Lua nil or LuaJIT FFI NULL is pushed.
+ */
 static void
-lua_mysql_push_value(struct lua_State *L, MYSQL_FIELD *field,
-	void *data, unsigned long len)
+lua_mysql_push_value(struct lua_State *L, MYSQL_FIELD *field, void *data,
+		     unsigned long len, int keep_null)
 {
+	/*
+	 * Field type isn't MYSQL_TYPE_NULL actually in case of
+	 * Lua's nil passed as value.
+	 * Example: 'conn:execute('SELECT ? AS x', nil)'.
+	 */
+	if (data == NULL)
+		field->type = MYSQL_TYPE_NULL;
 	switch (field->type) {
 		case MYSQL_TYPE_TINY:
 		case MYSQL_TYPE_SHORT:
@@ -188,7 +214,10 @@ lua_mysql_push_value(struct lua_State *L, MYSQL_FIELD *field,
 		}
 
 		case MYSQL_TYPE_NULL:
-			lua_pushnil(L);
+			if (keep_null == 1)
+				luaL_pushnull(L);
+			else
+				lua_pushnil(L);
 			break;
 
 		case MYSQL_TYPE_LONGLONG: {
@@ -239,10 +268,8 @@ lua_mysql_fetch_result(struct lua_State *L)
 		unsigned long *len = mysql_fetch_lengths(result);
 		unsigned col_no;
 		for (col_no = 0; col_no < num_fields; ++col_no) {
-			if (!row[col_no])
-				continue;
-			lua_mysql_push_value(L, fields + col_no,
-					     row[col_no], len[col_no]);
+			lua_mysql_push_value(L, fields + col_no, row[col_no],
+					     len[col_no], conn->keep_null);
 			if (conn->use_numeric_result) {
 				/* Assign to a column number. */
 				lua_rawseti(L, -2, col_no + 1);
@@ -350,16 +377,16 @@ lua_mysql_stmt_push_row(struct lua_State *L)
 	unsigned long col_count = lua_tonumber(L, 1);
 	MYSQL_BIND *results = (MYSQL_BIND *)lua_topointer(L, 2);
 	MYSQL_FIELD *fields = (MYSQL_FIELD *)lua_topointer(L, 3);
+	int keep_null = lua_tointeger(L, 4);
 
 	lua_newtable(L);
 	unsigned col_no;
 	for (col_no = 0; col_no < col_count; ++col_no) {
-		if (*results[col_no].is_null)
-			continue;
+		void *data = *results[col_no].is_null ? NULL :
+			results[col_no].buffer;
 		lua_pushstring(L, fields[col_no].name);
-		lua_mysql_push_value(L, fields + col_no,
-				     results[col_no].buffer,
-				     *results[col_no].length);
+		lua_mysql_push_value(L, fields + col_no, data,
+				     *results[col_no].length, keep_null);
 		lua_settable(L, -3);
 	}
 	return 1;
@@ -371,7 +398,7 @@ lua_mysql_stmt_push_row(struct lua_State *L)
 static int
 lua_mysql_execute_prepared(struct lua_State *L)
 {
-	MYSQL *raw_conn = lua_check_mysqlconn(L, 1)->raw_conn;
+	struct mysql_connection *conn = lua_check_mysqlconn(L, 1);
 	size_t len;
 	const char *sql = lua_tolstring(L, 2, &len);
 	int ret_count = 0, fail = 0, error = 0;
@@ -389,7 +416,7 @@ lua_mysql_execute_prepared(struct lua_State *L)
 	lua_pushnumber(L, 0);
 	lua_newtable(L);
 	ret_count = 2;
-	stmt = mysql_stmt_init(raw_conn);
+	stmt = mysql_stmt_init(conn->raw_conn);
 	if ((error = !stmt))
 		goto done;
 	error = mysql_stmt_prepare(stmt, sql, len);
@@ -467,7 +494,8 @@ lua_mysql_execute_prepared(struct lua_State *L)
 		lua_pushnumber(L, col_count);
 		lua_pushlightuserdata(L, result_binds);
 		lua_pushlightuserdata(L, fields);
-		if ((fail = lua_pcall(L, 3, 1, 0)))
+		lua_pushinteger(L, conn->keep_null);
+		if ((fail = lua_pcall(L, 4, 1, 0)))
 			goto done;
 		lua_settable(L, -3);
 		++row_idx;
@@ -476,7 +504,7 @@ lua_mysql_execute_prepared(struct lua_State *L)
 
 done:
 	if (error)
-		ret_count = lua_mysql_push_error(L, raw_conn);
+		ret_count = lua_mysql_push_error(L, conn->raw_conn);
 	if (values)
 		free(values);
 	if (param_binds)
@@ -592,9 +620,9 @@ mysql_wait_for_io(my_socket socket, my_bool is_read, int timeout)
 static int
 lua_mysql_connect(struct lua_State *L)
 {
-	if (lua_gettop(L) < 6) {
+	if (lua_gettop(L) < 7) {
 		luaL_error(L, "Usage: mysql.connect(host, port, user, "
-			   "password, db, use_numeric_result)");
+			   "password, db, use_numeric_result, keep_null)");
 	}
 
 	const char *host = lua_tostring(L, 1);
@@ -603,6 +631,7 @@ lua_mysql_connect(struct lua_State *L)
 	const char *pass = lua_tostring(L, 4);
 	const char *db = lua_tostring(L, 5);
 	const int use_numeric_result = lua_toboolean(L, 6);
+	const int keep_null = lua_toboolean(L, 7);
 
 	MYSQL *raw_conn, *tmp_raw_conn = mysql_init(NULL);
 	if (!tmp_raw_conn) {
@@ -650,6 +679,7 @@ lua_mysql_connect(struct lua_State *L)
 	*conn_p = conn;
 	(*conn_p)->raw_conn = raw_conn;
 	(*conn_p)->use_numeric_result = use_numeric_result;
+	(*conn_p)->keep_null = keep_null;
 	luaL_getmetatable(L, mysql_driver_label);
 	lua_setmetatable(L, -2);
 
@@ -678,6 +708,10 @@ luaopen_mysql_driver(lua_State *L)
 {
 	if (mysql_library_init(0, NULL, NULL))
 		luaL_error(L, "Failed to initialize mysql library");
+
+	/* Create NULL constant. */
+	*(void **) luaL_pushcdata(L, luaL_ctypeid(L, "void *")) = NULL;
+	luaL_nil_ref = luaL_ref(L, LUA_REGISTRYINDEX);
 
 	static const struct luaL_Reg methods [] = {
 		{"execute_prepared", lua_mysql_execute_prepared},
