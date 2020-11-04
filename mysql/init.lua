@@ -36,7 +36,8 @@ local function conn_get(pool, timeout)
         local status
         status, mysql_conn = driver.connect(pool.host, pool.port or 0,
                                             pool.user, pool.pass,
-                                            pool.db, pool.use_numeric_result)
+                                            pool.db, pool.use_numeric_result,
+                                            pool.keep_null)
         if status < 0 then
             error(mysql_conn)
         end
@@ -165,7 +166,8 @@ local function pool_create(opts)
     for i = 1, opts.size do
         local status, conn = driver.connect(opts.host, opts.port or 0,
                                             opts.user, opts.password,
-                                            opts.db, opts.use_numeric_result)
+                                            opts.db, opts.use_numeric_result,
+                                            opts.keep_null)
         if status < 0 then
             while queue:count() > 0 do
                 local mysql_conn = queue:get()
@@ -185,6 +187,7 @@ local function pool_create(opts)
         db          = opts.db,
         size        = opts.size,
         use_numeric_result = opts.use_numeric_result,
+        keep_null   = opts.keep_null,
 
         -- private variables
         queue       = queue,
@@ -244,7 +247,8 @@ local function connect(opts)
 
     local status, mysql_conn = driver.connect(opts.host, opts.port or 0,
                                               opts.user, opts.password,
-                                              opts.db, opts.use_numeric_result)
+                                              opts.db, opts.use_numeric_result,
+                                              opts.keep_null)
     if status < 0 then
         error(mysql_conn)
     end
