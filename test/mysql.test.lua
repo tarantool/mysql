@@ -516,8 +516,32 @@ local function test_underlying_conn_closed_during_gc(test)
     test:ok(ffi.C.fcntl(handle, F_GETFD) == -1, 'descriptor is closed')
 end
 
+local function test_ffi_null_printing(test, pool)
+    test:plan(4)
+    local function json_result(keep_null, prepared)
+        local conn, err = mysql.connect({host = host, port = port, user = user,
+            password = password, db = db, keep_null = keep_null})
+        if conn == nil then error(err) end
+        local rows
+        if prepared then
+            rows = conn:execute('SELECT 1 AS w, ? AS x', nil)
+        else
+            rows = conn:execute('SELECT 1 AS w, NULL AS x')
+        end
+        return json.encode(rows)
+    end
+    local res = json_result(true, true)
+    test:ok(res == '[[{"x":null,"w":1}]]', 'execute_prepared keep_null enabled')
+    res = json_result(false, true)
+    test:ok(res == '[[{"w":1}]]', 'execute_prepared keep_null disabled')
+    res = json_result(true, false)
+    test:ok(res == '[[{"x":null,"w":1}]]', 'execute keep_null enabled')
+    res = json_result(false, false)
+    test:ok(res == '[[{"w":1}]]', 'execute keep_null disabled')
+end
+
 local test = tap.test('mysql connector')
-test:plan(8)
+test:plan(9)
 
 test:test('connection old api', test_old_api, conn)
 local pool_conn = p:get()
@@ -529,6 +553,7 @@ test:test('connection pool', test_connection_pool, p)
 test:test('connection reset', test_connection_reset, p)
 test:test('test_underlying_conn_closed_during_gc',
           test_underlying_conn_closed_during_gc, p)
+test:test('ffi null printing', test_ffi_null_printing, p)
 p:close()
 
 os.exit(test:check() and 0 or 1)
