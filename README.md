@@ -91,6 +91,8 @@ Connect to a database.
  - `db` - database name
  - `use_numeric_result` - provide result of the "conn:execute" as ordered list
    (true/false); default value: false
+ - `keep_null` - provide printing null fields in the result of the
+   "conn:execute" or "conn:execute_prepared" (true/false); default value: false
 
 Throws an error on failure.
 
@@ -142,11 +144,26 @@ Throws an error on failure.
 ```
 
 *Example*:
+
+(when `keep_null = false` or is not set on a pool/connection creation)
+
 ```
-tarantool> conn:execute("SELECT ? AS a, 'xx' AS b", 42)
+tarantool> conn:execute("SELECT ? AS a, 'xx' AS b", NULL AS c , 42)
 ---
 - - - a: 42
       b: xx
+- true
+...
+```
+
+(when `keep_null = true` on a pool/connection creation)
+
+```
+tarantool> conn:execute("SELECT ? AS a, 'xx' AS b", NULL AS c, 42)
+---
+- - - a: 42
+      b: xx
+      c: null
 - true
 ...
 ```
@@ -222,6 +239,8 @@ Create a connection pool with count of size established connections.
  - `size` - count of connections in pool
  - `use_numeric_result` - provide result of the "conn:execute" as ordered list
    (true/false); default value: false
+ - `keep_null` - provide printing null fields in the result of the
+   "conn:execute" or "conn:execute_prepared" (true/false); default value: false
 
 Throws an error on failure.
 
