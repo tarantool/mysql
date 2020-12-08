@@ -540,8 +540,91 @@ local function test_ffi_null_printing(test, pool)
     test:ok(res == '[[{"w":1}]]', 'execute keep_null disabled')
 end
 
+--- gh-34: Check that fiber is not blocked in the following case.
+-- A connection conn is acquired from a pool and we acquire a
+-- lock. Then we start the first fiber with pool:put(conn), which
+-- try to acquire lock and yield. Then the second fiber is started
+-- to perform conn:execute(), conn:reset() or conn:quote() which
+-- try to acquire lock, because the connection is still marked as
+-- 'usable' and yield too. It's appeared that the lock is never
+-- released. Now, it's fixed.
+-- In the case of conn:close() check that error message is proper.
+local function test_block_fiber_inf(test, pool)
+    test:plan(7)
+
+    local function fiber_block_execute(conn)
+        local res, err = pcall(conn.execute, conn, 'SELECT "a"')
+        test:ok(res == false and string.find(err, 'Connection is not usable'),
+            'execute failed')
+    end
+
+    local function fiber_block_reset(conn, pool)
+        local res, err = pcall(conn.reset, conn, pool.user, pool.pass, pool.db)
+        test:ok(res == false and string.find(err, 'Connection is not usable'),
+            'reset failed')
+    end
+
+    local function fiber_block_quote(conn, pool)
+        local res, err = pcall(conn.quote, conn, 1)
+        test:ok(res == false and string.find(err, 'Connection is not usable'),
+            'quote failed')
+    end
+
+    local timeout = 5
+    local cases = {fiber_block_execute, fiber_block_reset, fiber_block_quote}
+    for _, case in ipairs(cases) do
+        local conn = pool:get()
+
+        conn.queue:get()
+        fiber.create(pool.put, pool, conn)
+        local blocked_fiber = fiber.create(case, conn, pool)
+        conn.queue:put(true)
+
+        local start_time = fiber.time()
+        local is_alive = true
+
+        -- Wait for the blocked fiber to finish,
+        -- but no more than "timeout" seconds.
+        while fiber.time() - start_time < timeout and is_alive do
+            fiber.sleep(0.1)
+            is_alive = blocked_fiber:status() ~= 'dead'
+        end
+
+        test:ok(is_alive == false, 'fiber is not blocked')
+    end
+
+    local non_pool_conn, err = mysql.connect({ host = host, port = port,
+        user = user, password = password, db = db })
+    if non_pool_conn == nil then error(err) end
+
+    local function make_unusable(conn)
+        conn.queue:get()
+        conn.usable = false
+        conn.queue:put(false)
+    end
+
+    local function fiber_block_close(conn)
+        local res, err = pcall(conn.close, conn)
+        test:ok(res == false and string.find(err, 'Connection is not usable'),
+            'close failed')
+    end
+
+    non_pool_conn.queue:get()
+    fiber.create(make_unusable, non_pool_conn)
+    local blocked_fiber = fiber.create(fiber_block_close, non_pool_conn)
+    non_pool_conn.queue:put(true)
+
+    local start_time = fiber.time()
+    local is_alive = true
+
+    while fiber.time() - start_time < timeout and is_alive do
+        fiber.sleep(0.1)
+        is_alive = blocked_fiber:status() ~= 'dead'
+    end
+end
+
 local test = tap.test('mysql connector')
-test:plan(9)
+test:plan(10)
 
 test:test('connection old api', test_old_api, conn)
 local pool_conn = p:get()
@@ -554,6 +637,7 @@ test:test('connection reset', test_connection_reset, p)
 test:test('test_underlying_conn_closed_during_gc',
           test_underlying_conn_closed_during_gc, p)
 test:test('ffi null printing', test_ffi_null_printing, p)
+test:test('test_block_fiber_inf', test_block_fiber_inf, p)
 p:close()
 
 os.exit(test:check() and 0 or 1)

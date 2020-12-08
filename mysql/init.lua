@@ -67,24 +67,32 @@ end
 local function conn_put(conn)
     local mysqlconn = conn.conn
     ffi.gc(conn.__gc_hook, nil)
-    if not conn.queue:get() then
-        conn.usable = false
-        return POOL_EMPTY_SLOT
-    end
+    local result = (conn.queue:get() and mysqlconn) or POOL_EMPTY_SLOT
     conn.usable = false
-    return mysqlconn
+    conn.queue:put(false)
+    return result
+end
+
+local function conn_acquire_lock(conn)
+    if not conn.usable then
+        error('Connection is not usable')
+    end
+    if not conn.queue:get() then
+        -- Connection could become unusable, so that release lock
+        -- taken above and throw error.
+        if not conn.usable then
+            conn.queue:put(false)
+            error('Connection is not usable')
+        end
+        conn.queue:put(false)
+        error('Connection is broken')
+    end
 end
 
 conn_mt = {
     __index = {
         execute = function(self, sql, ...)
-            if not self.usable then
-                error('Connection is not usable')
-            end
-            if not self.queue:get() then
-                self.queue:put(false)
-                error('Connection is broken')
-            end
+            conn_acquire_lock(self)
             local status, datas
             if select('#', ...) > 0 then
                 status, datas = self.conn:execute_prepared(sql, ...)
@@ -112,26 +120,14 @@ conn_mt = {
             return msg and data[1][1].code == 1
         end,
         close = function(self)
-            if not self.usable then
-                error('Connection is not usable')
-            end
-            if not self.queue:get() then
-                self.queue:put(false)
-                error('Connection is broken')
-            end
+            conn_acquire_lock(self)
             self.usable = false
             self.conn:close()
             self.queue:put(false)
             return true
         end,
         reset = function(self, user, pass, db)
-            if not self.usable then
-                error('Connection is not usable')
-            end
-            if not self.queue:get() then
-                self.queue:put(false)
-                error('Connection is broken')
-            end
+            conn_acquire_lock(self)
             -- If the update of the connection settings fails, we must set
             -- the connection to a "broken" state and throw an error.
             local status = self.conn:reset(user, pass, db)
@@ -142,13 +138,7 @@ conn_mt = {
             self.queue:put(true)
         end,
 	quote = function(self, value)
-            if not self.usable then
-                error('Connection is not usable')
-            end
-            if not self.queue:get() then
-                self.queue:put(false)
-                error('Connection is broken')
-            end
+            conn_acquire_lock(self)
             local ret = self.conn:quote(value)
             self.queue:put(true)
             return ret
