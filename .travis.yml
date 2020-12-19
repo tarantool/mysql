@@ -41,8 +41,6 @@ jobs:
       env: OS=ubuntu DIST=xenial
     - name: "Ubuntu Bionic (18.04) build + deploy DEB"
       env: OS=ubuntu DIST=bionic
-    - name: "Ubuntu Eoan (19.10) build + deploy DEB"
-      env: OS=ubuntu DIST=eoan
     - name: "Ubuntu Focal (20.04) build + deploy DEB"
       env: OS=ubuntu DIST=focal
     - name: "Debian Jessie (8) build + deploy DEB"
