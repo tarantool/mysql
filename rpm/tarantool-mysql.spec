@@ -7,7 +7,10 @@ License: BSD
 URL: https://github.com/tarantool/mysql
 Source0: https://github.com/tarantool/%{name}/archive/%{version}/%{name}-%{version}.tar.gz
 BuildRequires: cmake >= 2.8
+%if (0%{?fedora} >= 22 || 0%{?rhel} >= 7 || 0%{?sle_version} >= 1500)
+ # RHEL 6 requires devtoolset
 BuildRequires: gcc >= 4.5
+%endif
 BuildRequires: openssl-devel
 BuildRequires: tarantool-devel >= 1.6.8.0
 Requires: tarantool >= 1.6.8.0
