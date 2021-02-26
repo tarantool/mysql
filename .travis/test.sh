@@ -4,13 +4,13 @@ set -exu  # Strict shell (w/o -o pipefail)
 
 REPO=${TARANTOOL_REPO:-1.10}
 
-curl http://download.tarantool.org/tarantool/${REPO}/gpgkey | sudo apt-key add -
+curl -LsSf https://download.tarantool.org/tarantool/${REPO}/gpgkey | sudo apt-key add -
 release=`lsb_release -c -s`
 
 sudo rm -f /etc/apt/sources.list.d/*tarantool*.list
 sudo tee /etc/apt/sources.list.d/tarantool_${REPO}.list <<- EOF
-deb http://download.tarantool.org/tarantool/${REPO}/ubuntu/ $release main
-deb-src http://download.tarantool.org/tarantool/${REPO}/ubuntu/ $release main
+deb https://download.tarantool.org/tarantool/${REPO}/ubuntu/ $release main
+deb-src https://download.tarantool.org/tarantool/${REPO}/ubuntu/ $release main
 EOF
 
 sudo apt-get update
