@@ -1,0 +1,59 @@
+name: reusable_testing
+
+on:
+  workflow_call:
+    inputs:
+      artifact_name:
+        description: The name of the tarantool build artifact
+        default: ubuntu-focal
+        required: false
+        type: string
+
+jobs:
+  run_tests:
+    runs-on: ubuntu-20.04
+
+    env:
+      MYSQL_HOST: 127.0.0.1
+      MYSQL_PORT: 3306
+      MYSQL_USER: tarantool
+      MYSQL_DATABASE: tarantool_mysql_test
+
+    steps:
+      - name: Clone the mysql module
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ github.repository_owner }}/mysql
+          submodules: recursive
+
+      - name: Download the tarantool build artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: ${{ inputs.artifact_name }}
+
+      - name: Install tarantool
+        # Now we're lucky: all dependencies are already installed. Check package
+        # dependencies when migrating to other OS version.
+        run: sudo dpkg -i tarantool*.deb
+
+      # Workaround to avoid issue https://github.com/tarantool/mysql/issues/47.
+      - name: Update mysql server config
+        run: |
+          sudo sed -i 's/\[mysqld\]/\[mysqld\]\ncharacter-set-server = utf8/' \
+            /etc/mysql/mysql.conf.d/mysqld.cnf
+          sudo systemctl restart mysql
+
+      - name: Prepare test environment
+        run: |
+          sudo mysql -proot -e "CREATE USER ${MYSQL_USER}@${MYSQL_HOST};"
+          sudo mysql -proot -e "GRANT ALL PRIVILEGES ON *.* \
+            TO ${MYSQL_USER}@${MYSQL_HOST};"
+          sudo mysql -proot -e "ALTER USER ${MYSQL_USER}@${MYSQL_HOST} \
+            IDENTIFIED WITH mysql_native_password BY '';"
+          sudo mysql -proot -e "CREATE DATABASE ${MYSQL_DATABASE};"
+
+      - run: cmake . && make
+      - run: make check
+        env:
+          MYSQL: '${{ env.MYSQL_HOST }}:${{ env.MYSQL_PORT }}:${{
+            env.MYSQL_USER }}::${{ env.MYSQL_DATABASE }}'
