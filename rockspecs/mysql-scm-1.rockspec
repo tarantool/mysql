@@ -1,7 +1,7 @@
 package = 'mysql'
 version = 'scm-1'
 source  = {
-    url    = 'git://github.com/tarantool/mysql.git',
+    url    = 'git+https://github.com/tarantool/mysql.git',
     branch = 'master',
 }
 description = {
