@@ -1,0 +1,61 @@
+name: fast_testing
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - 'master'
+    tags:
+      - '*'
+
+jobs:
+  run_tests:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        tarantool:
+          - '1.10'
+          - '2.8'
+          - '2.9'
+
+    env:
+      MYSQL_HOST: 127.0.0.1
+      MYSQL_PORT: 3306
+      MYSQL_USER: tarantool
+      MYSQL_DATABASE: tarantool_mysql_test
+
+    steps:
+      - name: Clone the module
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: Setup tarantool ${{ matrix.tarantool }}
+        uses: tarantool/setup-tarantool@v1
+        with:
+          tarantool-version: ${{ matrix.tarantool }}
+
+      # Workaround to avoid issue https://github.com/tarantool/mysql/issues/47.
+      - name: Update mysql server config
+        run: |
+          sudo sed -i 's/\[mysqld\]/\[mysqld\]\ncharacter-set-server = utf8/' \
+            /etc/mysql/mysql.conf.d/mysqld.cnf
+          sudo systemctl restart mysql
+
+      - name: Prepare test environment
+        run: |
+          sudo mysql -proot -e "CREATE USER ${MYSQL_USER}@${MYSQL_HOST};"
+          sudo mysql -proot -e "GRANT ALL PRIVILEGES ON *.* \
+            TO ${MYSQL_USER}@${MYSQL_HOST};"
+          sudo mysql -proot -e "ALTER USER ${MYSQL_USER}@${MYSQL_HOST} \
+            IDENTIFIED WITH mysql_native_password BY '';"
+          sudo mysql -proot -e "CREATE DATABASE ${MYSQL_DATABASE};"
+
+      - run: cmake . && make
+      - run: make check
+        env:
+          MYSQL: '${{ env.MYSQL_HOST }}:${{ env.MYSQL_PORT }}:${{
+            env.MYSQL_USER }}::${{ env.MYSQL_DATABASE }}'
