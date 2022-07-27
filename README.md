@@ -10,6 +10,7 @@
   tarantool-devel packages).
 * MySQL 5.1 header files (libmysqlclient-dev package).
 * OpenSSL development package.
+* libucontext (only for Alpine).
 
 If you prefer to install the connector using a system package manager you don't
 need to manually install dependencies.
