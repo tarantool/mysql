@@ -3,6 +3,7 @@
 local fiber = require('fiber')
 local driver = require('mysql.driver')
 local ffi = require('ffi')
+local log = require('log')
 
 local pool_mt
 local conn_mt
@@ -25,6 +26,23 @@ local function conn_create(mysql_conn)
     return conn
 end
 
+-- There is no reason to make it configurable: either everyting is alright and
+-- channel put is immediate or pool is doomed.
+local CONN_GC_HOOK_TIMEOUT = 0
+
+local function conn_gc_hook(pool, conn_id)
+    local success = pool.queue:put(POOL_EMPTY_SLOT, CONN_GC_HOOK_TIMEOUT)
+    if not success then
+        log.error('mysql pool %s internal queue unexpected state: there are no ' ..
+                  'empty slots, connection %s cannot be put back. It is likely ' ..
+                  'that someone had messed with pool.queue manually. Closing ' ..
+                  'the pool...', pool, conn_id)
+        log.error(debug.traceback)
+
+        pool:close()
+    end
+end
+
 -- get connection from pool
 local function conn_get(pool, timeout)
     local mysql_conn = pool.queue:get(timeout)
@@ -44,11 +62,17 @@ local function conn_get(pool, timeout)
     end
 
     local conn = conn_create(mysql_conn)
+    local conn_id = tostring(conn)
     -- we can use ffi gc to return mysql connection to pool
     conn.__gc_hook = ffi.gc(ffi.new('void *'),
             function(self)
                 mysql_conn:close()
-                pool.queue:put(POOL_EMPTY_SLOT)
+                -- Fiber yields are prohibited in gc since Tarantool
+                -- * 2.6.0-138-gd3f1dd720
+                -- * 2.5.1-105-gc690b3337
+                -- * 2.4.2-89-g83037df15
+                -- * 1.10.7-47-g8099cb053
+                fiber.new(conn_gc_hook, pool, conn_id)
             end)
     -- If the connection belongs to a connection pool, it must be returned to
     -- the pool when calling "close" without actually closing the connection.

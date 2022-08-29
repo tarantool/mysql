@@ -90,6 +90,10 @@ local function test_gc(test, pool)
 
         -- Collect lost connections.
         collectgarbage('collect')
+        collectgarbage('collect')
+
+        -- Run a fiber scheduler cycle to finish gc process.
+        fiber.yield()
 
         -- Verify that a pool is aware of collected connections.
         test:is(pool.queue:count(), pool.size, 'all connections are put back')
@@ -110,6 +114,10 @@ local function test_gc(test, pool)
 
         -- Collect the lost connection.
         collectgarbage('collect')
+        collectgarbage('collect')
+
+        -- Run a fiber scheduler cycle to finish gc process.
+        fiber.yield()
 
         -- Verify that a pool is aware of collected connections.
         test:is(pool.queue:count(), pool.size, 'all connections are put back')
@@ -128,6 +136,10 @@ local function test_gc(test, pool)
 
         -- Collect the lost connection.
         collectgarbage('collect')
+        collectgarbage('collect')
+
+        -- Run a fiber scheduler cycle to finish gc process.
+        fiber.yield()
 
         -- Verify that a pool is aware of collected connections.
         test:is(pool.queue:count(), pool.size, 'all connections are put back')
@@ -321,6 +333,10 @@ local function test_connection_pool(test, pool)
         pool:put(conn)
         conn = nil -- luacheck: no unused
         collectgarbage('collect')
+        collectgarbage('collect')
+
+        -- Run a fiber scheduler cycle to finish gc process.
+        fiber.yield()
 
         -- Verify that the pool is full.
         test:ok(pool.queue:is_full(), 'a connection was given back')
@@ -358,6 +374,10 @@ local function test_connection_pool(test, pool)
         pool:put(conn)
         conn = nil -- luacheck: no unused
         collectgarbage('collect')
+        collectgarbage('collect')
+
+        -- Run a fiber scheduler cycle to finish gc process.
+        fiber.yield()
 
         -- Verify that the pool is full
         test:ok(pool.queue:is_full(), 'a broken connection was given back')
@@ -389,6 +409,10 @@ local function test_connection_pool(test, pool)
 
         conn = nil -- luacheck: no unused
         collectgarbage('collect')
+        collectgarbage('collect')
+
+        -- Run a fiber scheduler cycle to finish gc process.
+        fiber.yield()
 
         -- Verify that the pool is full
         test:ok(pool.queue:is_full(), 'a broken connection was given back')
@@ -510,7 +534,12 @@ local function test_underlying_conn_closed_during_gc(test)
 
     -- Somehow we lost the connection handle.
     conn = nil
-    collectgarbage()
+    collectgarbage('collect')
+    collectgarbage('collect')
+
+    -- Run a fiber scheduler cycle to finish gc process.
+    fiber.yield()
+
     ffi.cdef([[ int fcntl(int fd, int cmd, ...); ]])
     local F_GETFD = 1
     test:ok(ffi.C.fcntl(handle, F_GETFD) == -1, 'descriptor is closed')
@@ -646,8 +675,68 @@ local function test_put_to_wrong_pool(test)
               format(p1, p2))
 end
 
+-- gh-67: Check that garbage collection of a connection from a connection pool
+-- not yields. Yielding in gc is prohibited since Tarantool
+-- 2.6.0-138-gd3f1dd720, 2.5.1-105-gc690b3337, 2.4.2-89-g83037df15,
+-- 1.10.7-47-g8099cb053. If fiber yield happens in object gc, Tarantool process
+-- exits with code 1.
+--
+-- Gc hook of a connection from a connection pool calls `pool.queue:put(...)`.
+-- Fiber `channel:put()` may yield if the channel is full.
+-- `channel:put()`/`channel:get()` in mysql driver connection pool is balanced:
+-- * the channel capacity is equal to the connection count;
+-- * pool create fills the channel with multiple `channel:put()`s
+--   all the way through;
+-- * `pool:get()` causes single `channel:get()` and creates a connection object
+--    with gc hook;
+-- * `pool:put()` causes single `channel:put()` and removes gc hook;
+-- * gc hook causes single `channel:put()`.
+--
+-- There are no other cases of `channel:put()`. `pool:put()` and gc hook cannot
+-- be executed both in the same time: either a connection is used inside
+-- `pool:put()` and won't be garbage collected or a connection is no longer used
+-- anywhere else (including `pool:put()`) and it will be garbage collected.
+-- So now there are no valid cases when gc hook may yield unless someone messes
+-- up with pool queue. Messing up with pool queue anyway breaks a connection
+-- pool internal logic, but at least it won't be causing a process exit.
+local function test_conn_from_pool_gc_yield(test)
+    test:plan(2)
+
+    local p = mysql.pool_create({
+        host = host,
+        port = port,
+        user = user,
+        password = password,
+        db = db,
+        size = 1
+    })
+
+    local c = p:get()
+    local res = c:ping()
+    test:ok(res, 'Connection is ok')
+    p.queue:put('killer msg')
+
+    c = nil -- luacheck: no unused
+    collectgarbage('collect')
+    collectgarbage('collect')
+
+    -- Pool should became unavailable after gc hook finish.
+    -- It may be a couple of fiber scheduler cycles.
+    local pool_is_usable = true
+    for _= 1,10 do
+        fiber.yield()
+
+        pool_is_usable = p.usable
+        if pool_is_usable == false then
+            break
+        end
+    end
+
+    test:is(pool_is_usable, false, 'Pool is not usable')
+end
+
 local test = tap.test('mysql connector')
-test:plan(11)
+test:plan(12)
 
 test:test('connection old api', test_old_api, conn)
 local pool_conn = p:get()
@@ -662,6 +751,7 @@ test:test('test_underlying_conn_closed_during_gc',
 test:test('ffi null printing', test_ffi_null_printing, p)
 test:test('test_block_fiber_inf', test_block_fiber_inf, p)
 test:test('test_put_to_wrong_pool', test_put_to_wrong_pool)
+test:test('test_conn_from_pool_gc_yield', test_conn_from_pool_gc_yield)
 p:close()
 
 os.exit(test:check() and 0 or 1)
