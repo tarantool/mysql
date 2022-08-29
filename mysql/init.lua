@@ -137,12 +137,12 @@ conn_mt = {
             end
             self.queue:put(true)
         end,
-	quote = function(self, value)
+        quote = function(self, value)
             conn_acquire_lock(self)
             local ret = self.conn:quote(value)
             self.queue:put(true)
             return ret
-	end
+        end
     }
 }
 
