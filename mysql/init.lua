@@ -61,6 +61,7 @@ local function conn_get(pool, timeout)
         pool:put(self)
         return true
     end
+    conn.pool = pool
     return conn
 end
 
@@ -216,6 +217,12 @@ end
 -- Free binded connection
 local function pool_put(self, conn)
     if conn.usable then
+        if conn.pool ~= self then
+            local msg = ('Trying to put connection from pool %s to pool %s'):
+                        format(conn.pool, self)
+            error(msg)
+        end
+
         self.queue:put(conn_put(conn))
     else
         error('Connection is not usable')

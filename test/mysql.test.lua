@@ -623,8 +623,31 @@ local function test_block_fiber_inf(test, pool)
     end
 end
 
+local function test_put_to_wrong_pool(test)
+    test:plan(2)
+
+    local pool_cfg = {
+        host = host,
+        port = port,
+        user = user,
+        password = password,
+        db = db,
+        size = 1
+    }
+
+    local p1 = mysql.pool_create(pool_cfg)
+    local p2 = mysql.pool_create(pool_cfg)
+
+    local c = p1:get()
+    local ok, err = pcall(p2.put, p2, c)
+    test:is(ok, false, 'Put is failed')
+    test:like(tostring(err),
+              ('Trying to put connection from pool %s to pool %s'):
+              format(p1, p2))
+end
+
 local test = tap.test('mysql connector')
-test:plan(10)
+test:plan(11)
 
 test:test('connection old api', test_old_api, conn)
 local pool_conn = p:get()
@@ -638,6 +661,7 @@ test:test('test_underlying_conn_closed_during_gc',
           test_underlying_conn_closed_during_gc, p)
 test:test('ffi null printing', test_ffi_null_printing, p)
 test:test('test_block_fiber_inf', test_block_fiber_inf, p)
+test:test('test_put_to_wrong_pool', test_put_to_wrong_pool)
 p:close()
 
 os.exit(test:check() and 0 or 1)
