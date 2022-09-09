@@ -1,6 +1,7 @@
 # mysql - MySQL connector for [Tarantool][]
 
-[![Build Status](https://travis-ci.org/tarantool/mysql.png?branch=master)](https://travis-ci.org/tarantool/mysql)
+[![fast-testing status][testing-actions-badge]][testing-actions-url]
+[![publish status][publish-actions-badge]][publish-actions-url]
 
 ## Getting Started
 
@@ -297,3 +298,8 @@ another fiber 'injects' some sql between two your calls.
 [Tarantool]: http://github.com/tarantool/tarantool
 [Tests]: https://github.com/tarantool/mysql/tree/master/test
 [TarantoolRocks]: https://github.com/tarantool/rocks
+
+[testing-actions-badge]: https://github.com/tarantool/mysql/actions/workflows/fast_testing.yml/badge.svg
+[testing-actions-url]: https://github.com/tarantool/mysql/actions/workflows/fast_testing.yml
+[publish-actions-badge]: https://github.com/tarantool/mysql/actions/workflows/publish.yml/badge.svg
+[publish-actions-url]: https://github.com/tarantool/mysql/actions/workflows/publish.yml
