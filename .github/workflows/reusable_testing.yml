@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - name: Clone the mysql module
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           repository: ${{ github.repository_owner }}/mysql
           submodules: recursive
