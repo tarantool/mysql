@@ -668,7 +668,7 @@ local function test_put_to_wrong_pool(test)
     local p2 = mysql.pool_create(pool_cfg)
 
     local c = p1:get()
-    local ok, err = pcall(p2.put, p2, c)
+    local ok, err = p2:put(c)
     test:is(ok, false, 'Put is failed')
     test:like(tostring(err),
               ('Trying to put connection from pool %s to pool %s'):
