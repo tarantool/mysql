@@ -38,11 +38,8 @@ jobs:
         with:
           tarantool-version: ${{ matrix.tarantool }}
 
-      # Workaround to avoid issue https://github.com/tarantool/mysql/issues/47.
-      - name: Update mysql server config
+      - name: Restart mysql service
         run: |
-          sudo sed -i 's/\[mysqld\]/\[mysqld\]\ncharacter-set-server = utf8/' \
-            /etc/mysql/mysql.conf.d/mysqld.cnf
           sudo systemctl restart mysql
 
       - name: Prepare test environment
