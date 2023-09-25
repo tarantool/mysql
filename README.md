@@ -44,12 +44,12 @@ Example:<br/>
 
 The tests can now be run by `make check`.
 
-#### tarantoolctl rocks
+#### tt rocks
 
-You can also use tarantoolctl rocks:
+You can also use `tt rocks`:
 
 ```sh
-tarantoolctl rocks install mysql
+tt rocks install mysql
 ```
 
 #### Install a package
