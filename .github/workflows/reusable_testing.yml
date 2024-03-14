@@ -21,13 +21,13 @@ jobs:
 
     steps:
       - name: Clone the mysql module
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: ${{ github.repository_owner }}/mysql
           submodules: recursive
 
       - name: Download the tarantool build artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: ${{ inputs.artifact_name }}
 
