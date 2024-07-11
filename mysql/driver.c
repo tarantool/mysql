@@ -49,7 +49,7 @@ static int luaL_nil_ref = LUA_REFNIL;
  * Can be used as replacement of nil in Lua tables.
  * @param L stack
  */
-static inline void
+void
 luaL_pushnull(struct lua_State *L)
 {
 	lua_rawgeti(L, LUA_REGISTRYINDEX, luaL_nil_ref);
