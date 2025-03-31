@@ -11,15 +11,13 @@ on:
 
 jobs:
   run_tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     strategy:
       fail-fast: false
       matrix:
         tarantool:
-          - '1.10'
-          - '2.8'
-          - '2.10'
+          - '2.11'
 
     env:
       MYSQL_HOST: 127.0.0.1
@@ -29,12 +27,12 @@ jobs:
 
     steps:
       - name: Clone the module
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
       - name: Setup tarantool ${{ matrix.tarantool }}
-        uses: tarantool/setup-tarantool@v1
+        uses: tarantool/setup-tarantool@v3
         with:
           tarantool-version: ${{ matrix.tarantool }}
 
